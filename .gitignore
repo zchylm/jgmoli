@@ -1,0 +1,14 @@
+.DS_Store
+.idea/
+.vscode/
+
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+backend/target/
+backend/.env
+
+*.log
+

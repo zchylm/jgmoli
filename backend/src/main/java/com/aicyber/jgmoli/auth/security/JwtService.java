@@ -1,0 +1,52 @@
+package com.aicyber.jgmoli.auth.security;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Date;
+import java.util.UUID;
+
+@Service
+public class JwtService {
+
+    private final SecretKey signingKey;
+    private final long expirationHours;
+
+    public JwtService(
+            @Value("${jgmoli.auth.jwt-secret}") String secret,
+            @Value("${jgmoli.auth.jwt-expiration-hours}") long expirationHours
+    ) {
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalArgumentException("JGMOLI_JWT_SECRET must contain at least 32 characters");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.expirationHours = expirationHours;
+    }
+
+    public String createToken(UUID userId, String email, String role, int authVersion) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(userId.toString())
+                .claim("email", email)
+                .claim("role", role)
+                .claim("authVersion", authVersion)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(expirationHours * 3600)))
+                .signWith(signingKey)
+                .compact();
+    }
+
+    public Claims parse(String token) {
+        return Jwts.parser()
+                .verifyWith(signingKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+}
