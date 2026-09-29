@@ -1184,7 +1184,7 @@ export function HomePage() {
               <small>Start with what you own and how you want to play.</small>
               <em aria-hidden="true">→</em>
             </button>
-            <a href="mailto:sales@aicybermedia.com.au">
+            <a href="mailto:support@jgmoli.com.au">
               <span>03 / Melbourne</span>
               <strong>Talk to our team</strong>
               <small>Product, delivery and after-sales questions.</small>
@@ -1215,7 +1215,7 @@ export function HomePage() {
           </address>
           <address className="site-footer-group">
             <span>Contact</span>
-            <a href="mailto:sales@aicybermedia.com.au">sales@aicybermedia.com.au</a>
+            <a href="mailto:support@jgmoli.com.au">support@jgmoli.com.au</a>
             <a href="tel:+61436365016">+61 436 365 016</a>
           </address>
         </div>
