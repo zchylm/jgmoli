@@ -2,6 +2,7 @@ package com.aicyber.jgmoli.admin.service;
 
 import com.aicyber.jgmoli.admin.dto.AdminDtos;
 import com.aicyber.jgmoli.admin.repository.AdminRepository;
+import com.aicyber.jgmoli.email.service.TransactionalEmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
@@ -20,10 +21,13 @@ public class AdminService {
     private static final Set<String> FULFILMENT_STATUSES = Set.of("UNFULFILLED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED");
     private final AdminRepository repository;
     private final ObjectMapper objectMapper;
+    private final TransactionalEmailService emailService;
 
-    public AdminService(AdminRepository repository, ObjectMapper objectMapper) {
+    public AdminService(AdminRepository repository, ObjectMapper objectMapper,
+                        TransactionalEmailService emailService) {
         this.repository = repository;
         this.objectMapper = objectMapper;
+        this.emailService = emailService;
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +71,7 @@ public class AdminService {
                 """, next, carrier, tracking, next, next, reference);
         AdminDtos.OrderDetail after = order(reference);
         audit(adminId, "ORDER_FULFILMENT_UPDATED", "SALES_ORDER", reference, before, after);
+        emailService.queueFulfilmentUpdated(after);
         return after;
     }
 

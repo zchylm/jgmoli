@@ -12,8 +12,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -23,11 +21,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AccountAccessService accountAccessService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+                       AccountAccessService accountAccessService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.accountAccessService = accountAccessService;
     }
 
     @Transactional
@@ -50,8 +51,9 @@ public class AuthService {
                     email,
                     passwordEncoder.encode(password),
                     displayName,
-                    OffsetDateTime.now(ZoneOffset.UTC)
+                    null
             );
+            accountAccessService.queueVerification(user);
             return responseFor(user);
         } catch (DuplicateKeyException exception) {
             throw duplicateEmail();

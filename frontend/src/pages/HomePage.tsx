@@ -34,7 +34,20 @@ import simCockpit from '../assets/catalog/sim-cockpit-v1.jpg'
 import furnitureDesk from '../assets/catalog/furniture-desk-v1.jpg'
 import furnitureChair from '../assets/catalog/furniture-chair-v1.jpg'
 import furnitureLighting from '../assets/catalog/furniture-lighting-v1.jpg'
-import { AUTH_TOKEN_STORAGE_KEY, clearToken, getCurrentUser, loadToken, login, register, saveToken, type AuthUser } from '../services/auth'
+import {
+  AUTH_TOKEN_STORAGE_KEY,
+  clearToken,
+  confirmPasswordReset,
+  getCurrentUser,
+  loadToken,
+  login,
+  register,
+  requestPasswordReset,
+  resendVerification,
+  saveToken,
+  verifyEmail,
+  type AuthUser,
+} from '../services/auth'
 import { getCatalogProducts, type CatalogProduct } from '../services/catalog'
 import { loadCart, saveCart, type CartLine } from '../services/cart'
 import { MoliAssistant } from '../components/MoliAssistant'
@@ -56,7 +69,7 @@ type Experience = 'competitive' | 'immersive' | 'racing' | 'streaming'
 type GearTarget = 'displays' | 'controls' | 'audio' | 'sim' | 'furniture'
 type CatalogView = { title: string; allowedCategories: GearTarget[]; source: 'direct' | 'recommendation' }
 type CatalogItem = CatalogProduct & { image: string }
-type AuthMode = 'login' | 'register'
+type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 type CheckoutDraft = { source: CheckoutSource; lines: CartLine[] }
 type CheckoutStep = 'delivery' | 'review' | 'complete'
 
@@ -298,6 +311,9 @@ const experiences = [
 ]
 
 const demoPaymentEnabled = import.meta.env.DEV || import.meta.env.VITE_DEMO_PAYMENT_ENABLED === 'true'
+const initialAccountParams = new URL(window.location.href).searchParams
+const initialVerificationToken = initialAccountParams.get('verifyEmail')
+const initialPasswordResetToken = initialAccountParams.get('resetPassword')
 
 export function HomePage() {
   const [mode, setMode] = useState<HeroMode>('competitive')
@@ -316,12 +332,14 @@ export function HomePage() {
   const [isDocumentVisible, setIsDocumentVisible] = useState(true)
   const [isHeroMotionEnabled, setIsHeroMotionEnabled] = useState(true)
   const [isHeroAlternateVisible, setIsHeroAlternateVisible] = useState(false)
-  const [isAccountOpen, setIsAccountOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<AuthMode>('login')
+  const [isAccountOpen, setIsAccountOpen] = useState(Boolean(initialVerificationToken || initialPasswordResetToken))
+  const [authMode, setAuthMode] = useState<AuthMode>(initialPasswordResetToken ? 'reset' : 'login')
   const [authToken, setAuthToken] = useState<string | null>(loadToken)
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [authError, setAuthError] = useState('')
-  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false)
+  const [authNotice, setAuthNotice] = useState('')
+  const [passwordResetToken, setPasswordResetToken] = useState(initialPasswordResetToken ?? '')
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(Boolean(initialVerificationToken))
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([])
   const [catalogError, setCatalogError] = useState('')
   const [isCatalogLoading, setIsCatalogLoading] = useState(true)
@@ -423,6 +441,25 @@ export function HomePage() {
         setCartLines([])
         setSelectedCartVariantIds([])
       })
+  }, [authToken])
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const verificationToken = url.searchParams.get('verifyEmail')
+    const resetToken = url.searchParams.get('resetPassword')
+    if (!verificationToken && !resetToken) return
+
+    if (resetToken) return
+
+    verifyEmail(verificationToken!)
+      .then(({ message }) => {
+        setAuthNotice(message)
+        if (authToken) getCurrentUser(authToken).then(setAuthUser).catch(() => undefined)
+        url.searchParams.delete('verifyEmail')
+        window.history.replaceState({}, '', url)
+      })
+      .catch((error) => setAuthError(error instanceof Error ? error.message : 'This verification link could not be used.'))
+      .finally(() => setIsAuthSubmitting(false))
   }, [authToken])
 
   useEffect(() => {
@@ -547,6 +584,7 @@ export function HomePage() {
 
   const openAccount = () => {
     setAuthError('')
+    setAuthNotice('')
     if (!authUser) {
       setPendingCartItem(null)
       setPendingCheckout(null)
@@ -557,6 +595,7 @@ export function HomePage() {
   const closeAccount = () => {
     setIsAccountOpen(false)
     setAuthError('')
+    setAuthNotice('')
     setPendingCartItem(null)
     setPendingCheckout(null)
   }
@@ -564,12 +603,28 @@ export function HomePage() {
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setAuthError('')
+    setAuthNotice('')
     setIsAuthSubmitting(true)
     const data = new FormData(event.currentTarget)
     const email = String(data.get('email') ?? '')
     const password = String(data.get('password') ?? '')
 
     try {
+      if (authMode === 'forgot') {
+        const response = await requestPasswordReset(email)
+        setAuthNotice(response.message)
+        return
+      }
+      if (authMode === 'reset') {
+        const response = await confirmPasswordReset(passwordResetToken, password)
+        setAuthNotice(response.message)
+        setPasswordResetToken('')
+        setAuthMode('login')
+        const url = new URL(window.location.href)
+        url.searchParams.delete('resetPassword')
+        window.history.replaceState({}, '', url)
+        return
+      }
       const session = authMode === 'register'
         ? await register(email, password, String(data.get('displayName') ?? ''))
         : await login(email, password)
@@ -601,6 +656,18 @@ export function HomePage() {
     setSelectedCartVariantIds([])
     setIsOrdersOpen(false)
     setOrders([])
+  }
+
+  const resendAccountVerification = async () => {
+    if (!authToken) return
+    setAuthError('')
+    setAuthNotice('')
+    try {
+      const response = await resendVerification(authToken)
+      setAuthNotice(response.message)
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'A verification email could not be sent.')
+    }
   }
 
   const openOrders = async () => {
@@ -824,6 +891,9 @@ export function HomePage() {
           <aside className="account-popover" aria-label="Your account">
             <p>{authUser.displayName}</p>
             <span>{authUser.email}</span>
+            {!authUser.emailVerified && <button type="button" onClick={() => void resendAccountVerification()}>Verify email →</button>}
+            {authNotice && <small className="account-popover-notice">{authNotice}</small>}
+            {authError && <small className="account-popover-error">{authError}</small>}
             {authUser.role === 'ADMIN' && <a className="account-admin-link" href="#/admin">Admin workspace →</a>}
             <button type="button" onClick={openOrders}>My orders →</button>
             <button type="button" onClick={logOut}>Log out</button>
@@ -1570,19 +1640,26 @@ export function HomePage() {
                 <button type="button" className={authMode === 'register' ? 'active' : ''} onClick={() => { setAuthMode('register'); setAuthError('') }}>Create account</button>
               </div>
               <div className="account-form-heading">
-                <p className="eyebrow">{authMode === 'login' ? 'Welcome back' : 'Start your profile'}</p>
-                <h2 id="account-title">{authMode === 'login' ? 'Enter your world.' : 'Make it yours.'}</h2>
+                <p className="eyebrow">{authMode === 'login' ? 'Welcome back' : authMode === 'register' ? 'Start your profile' : 'Account access'}</p>
+                <h2 id="account-title">{authMode === 'login' ? 'Enter your world.' : authMode === 'register' ? 'Make it yours.' : authMode === 'forgot' ? 'Find your way back.' : 'Choose a new key.'}</h2>
               </div>
               <form className="account-form" onSubmit={submitAuth}>
                 {authMode === 'register' && (
                   <label>Name<input name="displayName" autoComplete="name" maxLength={120} required /></label>
                 )}
-                <label>Email<input name="email" type="email" autoComplete="email" maxLength={320} required /></label>
-                <label>Password<input name="password" type="password" autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} minLength={8} maxLength={200} required /></label>
+                {authMode !== 'reset' && (
+                  <label>Email<input name="email" type="email" autoComplete="email" maxLength={320} required /></label>
+                )}
+                {authMode !== 'forgot' && (
+                  <label>{authMode === 'reset' ? 'New password' : 'Password'}<input name="password" type="password" autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} minLength={8} maxLength={200} required /></label>
+                )}
                 {authError && <p className="account-error" role="alert">{authError}</p>}
+                {authNotice && <p className="account-notice" role="status">{authNotice}</p>}
                 <button className="account-primary" type="submit" disabled={isAuthSubmitting}>
-                  {isAuthSubmitting ? 'One moment…' : authMode === 'login' ? 'Log in' : 'Create account'} <span aria-hidden="true">→</span>
+                  {isAuthSubmitting ? 'One moment…' : authMode === 'login' ? 'Log in' : authMode === 'register' ? 'Create account' : authMode === 'forgot' ? 'Send reset link' : 'Update password'} <span aria-hidden="true">→</span>
                 </button>
+                {authMode === 'login' && <button className="account-secondary" type="button" onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthNotice('') }}>Forgot password?</button>}
+                {(authMode === 'forgot' || authMode === 'reset') && <button className="account-secondary" type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setAuthNotice('') }}>Back to log in</button>}
               </form>
             </div>
           </div>

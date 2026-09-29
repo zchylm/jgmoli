@@ -43,11 +43,19 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, exception) -> securityErrorWriter.forbidden(response)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/health", "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers(
+                                "/api/health",
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/email/verify",
+                                "/api/auth/password/reset/request",
+                                "/api/auth/password/reset/confirm"
+                        ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
                         .requestMatchers(
                                 "/api/auth/me",
+                                "/api/auth/email/resend",
                                 "/api/cart/**",
                                 "/api/checkout/**",
                                 "/api/orders/**",

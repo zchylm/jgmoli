@@ -7,6 +7,7 @@ import com.aicyber.jgmoli.checkout.dto.DeliveryRequest;
 import com.aicyber.jgmoli.checkout.dto.OrderResponse;
 import com.aicyber.jgmoli.checkout.model.CheckoutVariant;
 import com.aicyber.jgmoli.checkout.repository.CheckoutRepository;
+import com.aicyber.jgmoli.email.service.TransactionalEmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,10 +34,13 @@ public class CheckoutService {
     private static final ZoneId MELBOURNE = ZoneId.of("Australia/Melbourne");
     private final CheckoutRepository checkoutRepository;
     private final UserRepository userRepository;
+    private final TransactionalEmailService emailService;
 
-    public CheckoutService(CheckoutRepository checkoutRepository, UserRepository userRepository) {
+    public CheckoutService(CheckoutRepository checkoutRepository, UserRepository userRepository,
+                           TransactionalEmailService emailService) {
         this.checkoutRepository = checkoutRepository;
         this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -92,7 +96,9 @@ public class CheckoutService {
                     line.unitPriceIncGstCents(), line.unitPriceExGstCents(), line.gstCents(), line.lineTotalCents());
         }
         checkoutRepository.createDelivery(orderId, delivery);
-        return requireOrder(userId, orderReference);
+        OrderResponse order = requireOrder(userId, orderReference);
+        emailService.queueOrderCreated(order);
+        return order;
     }
 
     @Transactional(readOnly = true)

@@ -65,4 +65,20 @@ public class UserRepository {
                 """, id, customerReference, email, passwordHash, displayName, emailVerifiedAt);
         return findById(id).orElseThrow();
     }
+
+    public void markEmailVerified(UUID id) {
+        jdbcTemplate.update("""
+                UPDATE users
+                SET email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """, id);
+    }
+
+    public void updatePassword(UUID id, String passwordHash) {
+        jdbcTemplate.update("""
+                UPDATE users
+                SET password_hash = ?, auth_version = auth_version + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """, passwordHash, id);
+    }
 }

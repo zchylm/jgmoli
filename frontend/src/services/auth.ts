@@ -15,6 +15,7 @@ export type AuthSession = {
 }
 
 type AuthError = { message?: string }
+type MessageResponse = { message: string }
 
 export const AUTH_TOKEN_STORAGE_KEY = 'jgmoli.accessToken'
 
@@ -51,6 +52,34 @@ export async function login(email: string, password: string) {
 export async function getCurrentUser(token: string) {
   return request<AuthUser>('/auth/me', {
     headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export async function verifyEmail(token: string) {
+  return request<MessageResponse>('/auth/email/verify', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  })
+}
+
+export async function resendVerification(token: string) {
+  return request<MessageResponse>('/auth/email/resend', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export async function requestPasswordReset(email: string) {
+  return request<MessageResponse>('/auth/password/reset/request', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+}
+
+export async function confirmPasswordReset(token: string, password: string) {
+  return request<MessageResponse>('/auth/password/reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
   })
 }
 
