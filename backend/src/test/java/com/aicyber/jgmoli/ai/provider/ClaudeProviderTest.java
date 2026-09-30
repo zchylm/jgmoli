@@ -49,7 +49,7 @@ class ClaudeProviderTest {
         server.start();
 
         ClaudeProvider provider = new ClaudeProvider("test-key", "claude-sonnet-5", baseUrl());
-        ChatResponse answer = provider.answer("What works with Xbox?", List.of(
+        ChatResponse answer = provider.answer("What works with Xbox for a $500 AUD budget?", List.of(
                 new ChatTurn("user", "I want a more immersive setup"),
                 new ChatTurn("assistant", "Which platform do you play on?")
         ), "<JG_MOLI_PUBLIC_CONTEXT>Current catalogue</JG_MOLI_PUBLIC_CONTEXT>");
@@ -60,7 +60,7 @@ class ClaudeProviderTest {
         assertEquals(4_096, requestBody.get().path("max_tokens").asInt());
         assertEquals("low", requestBody.get().path("output_config").path("effort").asText());
         assertEquals(3, requestBody.get().path("messages").size());
-        assertEquals("What works with Xbox?", requestBody.get().path("messages").path(2).path("content").asText());
+        assertEquals("What works with Xbox for a $500 AUD budget?", requestBody.get().path("messages").path(2).path("content").asText());
         String systemPrompt = requestBody.get().path("system").asText();
         assertTrue(systemPrompt.contains("official product and website assistant for JG MOLI"));
         assertTrue(systemPrompt.contains("Platform compatibility is a hard constraint"));
@@ -72,6 +72,7 @@ class ClaudeProviderTest {
         assertTrue(systemPrompt.contains("Do not add generic offers"));
         assertTrue(systemPrompt.contains("Never ask for or repeat passwords"));
         assertTrue(systemPrompt.contains("<JG_MOLI_PUBLIC_CONTEXT>Current catalogue</JG_MOLI_PUBLIC_CONTEXT>"));
+        assertTrue(systemPrompt.contains("visitor explicitly provided a budget"));
         assertEquals("A controller remains a core console match.", answer.body());
         assertEquals("claude", answer.source());
     }

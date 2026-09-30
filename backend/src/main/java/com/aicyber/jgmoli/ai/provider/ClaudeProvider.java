@@ -17,9 +17,14 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Component
 public class ClaudeProvider implements LlmProvider {
+
+    private static final Pattern EXPLICIT_BUDGET = Pattern.compile(
+            "(?i)(?:\\b(?:budget|max(?:imum)?|spend|under|up to)\\b.{0,32}(?:\\$|\\bAUD\\b)|(?:\\$|\\bAUD\\b).{0,32}\\b(?:budget|max(?:imum)?|spend|under|up to)\\b)"
+    );
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -57,7 +62,7 @@ public class ClaudeProvider implements LlmProvider {
                 "model", model,
                 "max_tokens", 4_096,
                 "output_config", Map.of("effort", "low"),
-                "system", systemPrompt() + "\n\n" + knowledgeContext,
+                "system", systemPrompt() + "\n\n" + knowledgeContext + knownFacts(message),
                 "messages", messages
         );
 
@@ -88,6 +93,12 @@ public class ClaudeProvider implements LlmProvider {
         }
 
         return new ChatResponse("MOLI AI", extractText(responseBody), List.of(), "claude");
+    }
+
+    private String knownFacts(String message) {
+        if (!EXPLICIT_BUDGET.matcher(message).find()) return "";
+        return "\n\nLATEST MESSAGE FACTS DETECTED BY THE APPLICATION\n"
+                + "- The visitor explicitly provided a budget in their latest message. Treat it as known and do not ask for it again.";
     }
 
     private String extractText(String responseBody) {
