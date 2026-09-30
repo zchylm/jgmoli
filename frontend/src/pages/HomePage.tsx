@@ -62,7 +62,9 @@ import {
   type Payment,
 } from '../services/checkout'
 import {
+  pushRecommendationRoute,
   pushStoreRoute,
+  readRecommendationNavigation,
   readStoreNavigation,
   readStoreRoute,
   replaceStoreRoute,
@@ -325,6 +327,18 @@ const initialAccountParams = new URL(window.location.href).searchParams
 const initialVerificationToken = initialAccountParams.get('verifyEmail')
 const initialPasswordResetToken = initialAccountParams.get('resetPassword')
 
+function readStartingPoint(value: string | null): StartingPoint | null {
+  return startingPoints.some((point) => point.id === value) ? value as StartingPoint : null
+}
+
+function readExperience(value: string | null): Experience | null {
+  return experiences.some((item) => item.id === value) ? value as Experience : null
+}
+
+function readGearTarget(value: string | null): GearTarget | null {
+  return gearShortcuts.some((gear) => gear.id === value) ? value as GearTarget : null
+}
+
 export function HomePage() {
   const [mode, setMode] = useState<HeroMode>('competitive')
   const [startingPoint, setStartingPoint] = useState<StartingPoint | null>(null)
@@ -450,6 +464,32 @@ export function HomePage() {
         return
       }
 
+      if (route === 'recommendation') {
+        const navigation = readRecommendationNavigation()
+        const nextStartingPoint = readStartingPoint(navigation.startingPoint)
+        const nextExperience = readExperience(navigation.experience)
+        const nextCategory = readGearTarget(navigation.category)
+        setStartingPoint(nextStartingPoint)
+        setExperience(nextExperience)
+        setExperienceProduct(nextExperience
+          ? experiences.find((item) => item.id === nextExperience)?.products[0].label ?? null
+          : null)
+        setProductFocus(nextCategory)
+        setCatalogView(null)
+        setIsCategoryMenuOpen(false)
+        setHasGuidedInteraction(true)
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsCheckoutOpen(false)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        window.requestAnimationFrame(() => {
+          const sectionId = nextExperience ? 'experiences' : nextStartingPoint ? 'starting-point' : 'how-it-works'
+          document.getElementById(sectionId)?.scrollIntoView({ behavior: 'auto', block: 'start' })
+        })
+        return
+      }
+
       if (route === 'shop') {
         const navigation = readStoreNavigation<CatalogNavigationData>()
         const fallbackView: CatalogView = {
@@ -519,6 +559,12 @@ export function HomePage() {
       }
 
       setCatalogView(null)
+      setStartingPoint(null)
+      setExperience(null)
+      setExperienceProduct(null)
+      setProductFocus(null)
+      setIsCategoryMenuOpen(false)
+      setHasGuidedInteraction(false)
       setIsCartOpen(false)
       setIsAccountOpen(Boolean(initialVerificationToken || initialPasswordResetToken))
       setIsCheckoutOpen(false)
@@ -714,6 +760,9 @@ export function HomePage() {
     setStartingPoint(point.id)
     setProductFocus(null)
     setIsCategoryMenuOpen(false)
+    if (readStoreRoute() !== 'recommendation' || startingPoint !== point.id || productFocus !== null) {
+      pushRecommendationRoute({ startingPoint: point.id, experience, category: null })
+    }
   }
 
   const selectExperience = (item: (typeof experiences)[number]) => {
@@ -721,10 +770,35 @@ export function HomePage() {
     setExperienceProduct(item.products[0].label)
     setProductFocus(null)
     setIsCategoryMenuOpen(false)
+    if (readStoreRoute() !== 'recommendation' || experience !== item.id || productFocus !== null) {
+      pushRecommendationRoute({ startingPoint, experience: item.id, category: null })
+    }
   }
 
   const selectExperienceProduct = (product: (typeof experiences)[number]['products'][number]) => {
     setExperienceProduct(product.label)
+  }
+
+  const openRecommendation = () => {
+    setCatalogView(null)
+    setIsCartOpen(false)
+    setIsAccountOpen(false)
+    setIsCheckoutOpen(false)
+    setIsOrdersOpen(false)
+    setIsInvoiceOpen(false)
+    setHasGuidedInteraction(true)
+    if (readStoreRoute() !== 'recommendation') {
+      pushRecommendationRoute({ startingPoint, experience, category: productFocus })
+    }
+    scrollToSection(startingPoint ? experience ? 'experiences' : 'starting-point' : 'how-it-works')
+  }
+
+  const selectRecommendationCategory = (category: GearTarget | null) => {
+    setProductFocus(category)
+    setIsCategoryMenuOpen(false)
+    if (readStoreRoute() !== 'recommendation' || productFocus !== category) {
+      pushRecommendationRoute({ startingPoint, experience, category })
+    }
   }
 
   const leaveManagedView = (fallback: () => void) => {
@@ -1115,7 +1189,7 @@ export function HomePage() {
           <button className="nav-shop" type="button" onClick={() => openCatalog({ title: 'All gaming gear', allowedCategories: allGearIds, source: 'direct' })}>
             Shop all gear <span aria-hidden="true">→</span>
           </button>
-          <a className="nav-action" href="#how-it-works">Get my recommendation <span aria-hidden="true">→</span></a>
+          <a className="nav-action" href="#/recommendation" onClick={(event) => { event.preventDefault(); openRecommendation() }}>Get my recommendation <span aria-hidden="true">→</span></a>
           <button className="nav-cart" type="button" onClick={() => openCart()} aria-label={`Open cart with ${cartCount} items`}>
             <span className="nav-cart-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
@@ -1382,9 +1456,9 @@ export function HomePage() {
             </button>
             {isCategoryMenuOpen && (
               <div className="setup-category-menu" aria-label="Filter recommendation by category">
-                <button type="button" className={!productFocus ? 'active' : ''} onClick={() => { setProductFocus(null); setIsCategoryMenuOpen(false) }}>All recommended gear</button>
+                <button type="button" className={!productFocus ? 'active' : ''} onClick={() => selectRecommendationCategory(null)}>All recommended gear</button>
                 {recommendationGearIds.map((id) => (
-                  <button key={id} type="button" className={productFocus === id ? 'active' : ''} onClick={() => { setProductFocus(id); setIsCategoryMenuOpen(false) }}>
+                  <button key={id} type="button" className={productFocus === id ? 'active' : ''} onClick={() => selectRecommendationCategory(id)}>
                     {gearShortcuts.find((gear) => gear.id === id)?.label}
                   </button>
                 ))}
@@ -1423,7 +1497,7 @@ export function HomePage() {
               <small>Review a purchase or reopen your tax invoice.</small>
               <em aria-hidden="true">→</em>
             </button>
-            <button type="button" onClick={() => scrollToSection('how-it-works')}>
+            <button type="button" onClick={openRecommendation}>
               <span>02 / Recommendations</span>
               <strong>Find the right upgrade</strong>
               <small>Start with what you own and how you want to play.</small>

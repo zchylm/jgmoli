@@ -1,5 +1,6 @@
 export type StoreRoute =
   | 'home'
+  | 'recommendation'
   | 'shop'
   | 'cart'
   | 'account'
@@ -17,7 +18,15 @@ export type StoreNavigationState<T = unknown> = {
   }
 }
 
-const routeHashes: Record<Exclude<StoreRoute, 'home'>, string> = {
+export type RecommendationNavigationData = {
+  startingPoint: string | null
+  experience: string | null
+  category: string | null
+}
+
+type StaticStoreRoute = Exclude<StoreRoute, 'home' | 'recommendation'>
+
+const routeHashes: Record<StaticStoreRoute, string> = {
   shop: '#/shop',
   cart: '#/cart',
   account: '#/account',
@@ -29,6 +38,7 @@ const routeHashes: Record<Exclude<StoreRoute, 'home'>, string> = {
 }
 
 export function readStoreRoute(hash = window.location.hash): StoreRoute {
+  if (hash === '#/recommendation' || hash.startsWith('#/recommendation?')) return 'recommendation'
   const entry = Object.entries(routeHashes).find(([, value]) => value === hash)
   return entry?.[0] as StoreRoute | undefined ?? 'home'
 }
@@ -37,7 +47,7 @@ export function readStoreNavigation<T = unknown>(): StoreNavigationState<T>['jgm
   return (window.history.state as StoreNavigationState<T> | null)?.jgmoli
 }
 
-export function pushStoreRoute<T = unknown>(route: Exclude<StoreRoute, 'home'>, data?: T) {
+export function pushStoreRoute<T = unknown>(route: StaticStoreRoute, data?: T) {
   window.history.pushState(
     { ...(window.history.state ?? {}), jgmoli: { owned: true, route, data } },
     '',
@@ -45,12 +55,39 @@ export function pushStoreRoute<T = unknown>(route: Exclude<StoreRoute, 'home'>, 
   )
 }
 
-export function replaceStoreRoute<T = unknown>(route: Exclude<StoreRoute, 'home'>, data?: T) {
+export function replaceStoreRoute<T = unknown>(route: StaticStoreRoute, data?: T) {
   const owned = readStoreNavigation()?.owned ?? false
   window.history.replaceState(
     { ...(window.history.state ?? {}), jgmoli: { owned, route, data } },
     '',
     routeHashes[route],
+  )
+}
+
+function recommendationHash(data: RecommendationNavigationData) {
+  const params = new URLSearchParams()
+  if (data.startingPoint) params.set('device', data.startingPoint)
+  if (data.experience) params.set('experience', data.experience)
+  if (data.category) params.set('category', data.category)
+  const query = params.toString()
+  return `#/recommendation${query ? `?${query}` : ''}`
+}
+
+export function readRecommendationNavigation(): RecommendationNavigationData {
+  const query = window.location.hash.split('?')[1] ?? ''
+  const params = new URLSearchParams(query)
+  return {
+    startingPoint: params.get('device'),
+    experience: params.get('experience'),
+    category: params.get('category'),
+  }
+}
+
+export function pushRecommendationRoute(data: RecommendationNavigationData) {
+  window.history.pushState(
+    { ...(window.history.state ?? {}), jgmoli: { owned: true, route: 'recommendation', data } },
+    '',
+    recommendationHash(data),
   )
 }
 
