@@ -11,9 +11,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -148,6 +151,21 @@ class CheckoutControllerIntegrationTest {
                 """, Integer.class, orderReference);
         assertEquals(1, orderEmails);
         assertEquals(1, invoiceEmails);
+
+        var attachment = jdbcTemplate.queryForMap("""
+                SELECT email.attachment_filename, email.attachment_content_type,
+                       email.attachment_content_base64
+                FROM transactional_email_outbox email
+                JOIN sales_invoices invoices ON invoices.id = email.aggregate_id
+                JOIN sales_orders orders ON orders.id = invoices.order_id
+                WHERE email.message_type = 'INVOICE_ISSUED'
+                  AND orders.order_reference = ?
+                """, orderReference);
+        String attachmentName = (String) attachment.get("attachment_filename");
+        byte[] pdf = Base64.getDecoder().decode((String) attachment.get("attachment_content_base64"));
+        assertEquals("application/pdf", attachment.get("attachment_content_type"));
+        assertTrue(attachmentName.startsWith("JG-MOLI-JGM-INV-"));
+        assertEquals("%PDF-", new String(pdf, 0, 5, StandardCharsets.US_ASCII));
     }
 
     @Test

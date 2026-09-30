@@ -61,6 +61,10 @@ public class EmailOutboxService {
         if (draft.idempotencyKey().length() > 200) {
             throw new IllegalArgumentException("Email idempotency key is too long");
         }
+        if (draft.attachment() != null && (blank(draft.attachment().filename())
+                || blank(draft.attachment().contentType()) || blank(draft.attachment().base64Content()))) {
+            throw new IllegalArgumentException("Email attachment must include a filename, content type and content");
+        }
     }
 
     private boolean blank(String value) {
@@ -73,4 +77,3 @@ public class EmailOutboxService {
         return message.length() <= 500 ? message : message.substring(0, 500);
     }
 }
-

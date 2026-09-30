@@ -9,9 +9,9 @@ public record EmailDraft(
         String subject,
         String textBody,
         String htmlBody,
+        EmailAttachment attachment,
         String aggregateType,
         UUID aggregateId,
         String idempotencyKey
 ) {
 }
-

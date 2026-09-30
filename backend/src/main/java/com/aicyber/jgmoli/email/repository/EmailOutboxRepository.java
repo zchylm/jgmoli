@@ -1,6 +1,7 @@
 package com.aicyber.jgmoli.email.repository;
 
 import com.aicyber.jgmoli.email.model.EmailDraft;
+import com.aicyber.jgmoli.email.model.EmailAttachment;
 import com.aicyber.jgmoli.email.model.QueuedEmail;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -23,11 +24,13 @@ public class EmailOutboxRepository {
         jdbc.update("""
                 INSERT INTO transactional_email_outbox
                     (id, message_type, recipient_email, recipient_name, subject, text_body, html_body,
+                     attachment_filename, attachment_content_type, attachment_content_base64,
                      aggregate_type, aggregate_id, idempotency_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (idempotency_key) DO NOTHING
                 """, id, draft.messageType(), draft.recipientEmail(), draft.recipientName(), draft.subject(),
-                draft.textBody(), draft.htmlBody(), draft.aggregateType(), draft.aggregateId(), draft.idempotencyKey());
+                draft.textBody(), draft.htmlBody(), filename(draft.attachment()), contentType(draft.attachment()),
+                base64Content(draft.attachment()), draft.aggregateType(), draft.aggregateId(), draft.idempotencyKey());
         return jdbc.queryForObject(
                 "SELECT id FROM transactional_email_outbox WHERE idempotency_key = ?",
                 (resultSet, row) -> resultSet.getObject(1, UUID.class), draft.idempotencyKey()
@@ -59,13 +62,16 @@ public class EmailOutboxRepository {
     public Optional<QueuedEmail> findForDelivery(UUID id) {
         return jdbc.query("""
                 SELECT id, message_type, recipient_email, recipient_name, subject, text_body, html_body,
+                       attachment_filename, attachment_content_type, attachment_content_base64,
                        idempotency_key, attempt_count
                 FROM transactional_email_outbox WHERE id = ? AND status = 'SENDING'
                 """, resultSet -> resultSet.next() ? Optional.of(new QueuedEmail(
                 resultSet.getObject("id", UUID.class), resultSet.getString("message_type"),
                 resultSet.getString("recipient_email"), resultSet.getString("recipient_name"),
                 resultSet.getString("subject"), resultSet.getString("text_body"),
-                resultSet.getString("html_body"), resultSet.getString("idempotency_key"),
+                resultSet.getString("html_body"), attachment(resultSet.getString("attachment_filename"),
+                        resultSet.getString("attachment_content_type"),
+                        resultSet.getString("attachment_content_base64")), resultSet.getString("idempotency_key"),
                 resultSet.getInt("attempt_count")
         )) : Optional.empty(), id);
     }
@@ -74,7 +80,8 @@ public class EmailOutboxRepository {
         jdbc.update("""
                 UPDATE transactional_email_outbox
                 SET status = 'ACCEPTED', provider_message_id = ?, accepted_at = CURRENT_TIMESTAMP,
-                    text_body = NULL, html_body = NULL, updated_at = CURRENT_TIMESTAMP
+                    text_body = NULL, html_body = NULL, attachment_content_base64 = NULL,
+                    attachment_filename = NULL, attachment_content_type = NULL, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """, providerMessageId, id);
     }
@@ -91,6 +98,7 @@ public class EmailOutboxRepository {
         jdbc.update("""
                 UPDATE transactional_email_outbox
                 SET status = 'FAILED', last_error = ?, text_body = NULL, html_body = NULL,
+                    attachment_content_base64 = NULL, attachment_filename = NULL, attachment_content_type = NULL,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """, error, id);
@@ -100,5 +108,20 @@ public class EmailOutboxRepository {
         return jdbc.query("SELECT provider_message_id FROM transactional_email_outbox WHERE id = ?",
                 resultSet -> resultSet.next() ? resultSet.getString(1) : null, id);
     }
-}
 
+    private EmailAttachment attachment(String filename, String contentType, String base64Content) {
+        return filename == null ? null : new EmailAttachment(filename, contentType, base64Content);
+    }
+
+    private String filename(EmailAttachment attachment) {
+        return attachment == null ? null : attachment.filename();
+    }
+
+    private String contentType(EmailAttachment attachment) {
+        return attachment == null ? null : attachment.contentType();
+    }
+
+    private String base64Content(EmailAttachment attachment) {
+        return attachment == null ? null : attachment.base64Content();
+    }
+}

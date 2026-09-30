@@ -92,6 +92,13 @@ public class ResendEmailGateway implements EmailGateway {
         if (email.htmlBody() != null) body.put("html", email.htmlBody());
         if (email.textBody() != null) body.put("text", email.textBody());
         if (replyTo != null && !replyTo.isBlank()) body.put("reply_to", replyTo);
+        if (email.attachment() != null) {
+            body.put("attachments", List.of(Map.of(
+                    "filename", email.attachment().filename(),
+                    "content_type", email.attachment().contentType(),
+                    "content", email.attachment().base64Content()
+            )));
+        }
         body.put("tags", List.of(Map.of("name", "message_type", "value", email.messageType().toLowerCase())));
         try {
             return json.writeValueAsString(body);

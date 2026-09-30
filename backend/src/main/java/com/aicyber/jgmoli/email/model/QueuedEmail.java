@@ -10,8 +10,8 @@ public record QueuedEmail(
         String subject,
         String textBody,
         String htmlBody,
+        EmailAttachment attachment,
         String idempotencyKey,
         int attemptCount
 ) {
 }
-
