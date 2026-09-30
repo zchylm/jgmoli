@@ -61,6 +61,14 @@ import {
   type Order,
   type Payment,
 } from '../services/checkout'
+import {
+  pushStoreRoute,
+  readStoreNavigation,
+  readStoreRoute,
+  replaceStoreRoute,
+  replaceWithStoreHome,
+  type StoreRoute,
+} from '../app/storeNavigation'
 import './HomePage.css'
 
 type HeroMode = 'competitive' | 'immersive' | 'racing'
@@ -72,6 +80,8 @@ type CatalogItem = CatalogProduct & { image: string }
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 type CheckoutDraft = { source: CheckoutSource; lines: CartLine[] }
 type CheckoutStep = 'delivery' | 'review' | 'complete'
+type CatalogNavigationData = { catalogView: CatalogView; category: GearTarget | null }
+type CheckoutNavigationData = { depth: number }
 
 const deviceRecommendationProfiles: Record<StartingPoint, {
   defaultGears: GearTarget[]
@@ -349,6 +359,7 @@ export function HomePage() {
   const [pendingCartItem, setPendingCartItem] = useState<CatalogItem | null>(null)
   const [checkoutDraft, setCheckoutDraft] = useState<CheckoutDraft | null>(null)
   const [pendingCheckout, setPendingCheckout] = useState<CheckoutDraft | null>(null)
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('delivery')
   const [checkoutOrder, setCheckoutOrder] = useState<Order | null>(null)
   const [checkoutPayment, setCheckoutPayment] = useState<Payment | null>(null)
@@ -367,6 +378,8 @@ export function HomePage() {
   const startingPointRef = useRef<HTMLElement>(null)
   const experiencesRef = useRef<HTMLElement>(null)
   const checkoutRef = useRef<HTMLElement>(null)
+  const checkoutSubmittingRouteRef = useRef<StoreRoute | null>(null)
+  const pendingCheckoutCompletionRef = useRef(false)
   const selectedStart = startingPoints.find((point) => point.id === startingPoint)
   const displayedStart = selectedStart ?? startingPoints[0]
   const activeExperience = experience ?? 'competitive'
@@ -412,6 +425,130 @@ export function HomePage() {
   const selectedCartSubtotalCents = selectedCartItems.reduce((total, line) => total + line.product.priceCents * line.quantity, 0)
 
   useEffect(() => {
+    const applyBrowserRoute = () => {
+      const route = readStoreRoute()
+
+      if (route !== 'account') {
+        setPendingCartItem(null)
+        setPendingCheckout(null)
+      }
+
+      if (checkoutSubmittingRouteRef.current && route !== checkoutSubmittingRouteRef.current) {
+        window.history.forward()
+        return
+      }
+
+      if (pendingCheckoutCompletionRef.current) {
+        pendingCheckoutCompletionRef.current = false
+        pushStoreRoute<CheckoutNavigationData>('checkout-complete', { depth: 1 })
+        setCheckoutStep('complete')
+        setIsCheckoutOpen(true)
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route === 'shop') {
+        const navigation = readStoreNavigation<CatalogNavigationData>()
+        const fallbackView: CatalogView = {
+          title: 'All gaming gear',
+          allowedCategories: gearShortcuts.map((gear) => gear.id),
+          source: 'direct',
+        }
+        setCatalogView(navigation?.data?.catalogView ?? fallbackView)
+        setProductFocus(navigation?.data?.category ?? null)
+        setCatalogSubtype(null)
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsCheckoutOpen(false)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route === 'cart') {
+        setIsCartOpen(true)
+        setIsAccountOpen(false)
+        setIsCheckoutOpen(false)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route === 'account') {
+        setIsCartOpen(false)
+        setIsAccountOpen(true)
+        setIsCheckoutOpen(false)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route === 'orders') {
+        if (!loadToken()) {
+          replaceStoreRoute('account')
+          setIsAccountOpen(true)
+          setIsOrdersOpen(false)
+          return
+        }
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsCheckoutOpen(false)
+        setIsOrdersOpen(true)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route.startsWith('checkout-')) {
+        setCheckoutStep(route.replace('checkout-', '') as CheckoutStep)
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsCheckoutOpen(true)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route === 'invoice') {
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsInvoiceOpen(true)
+        return
+      }
+
+      setCatalogView(null)
+      setIsCartOpen(false)
+      setIsAccountOpen(Boolean(initialVerificationToken || initialPasswordResetToken))
+      setIsCheckoutOpen(false)
+      setIsOrdersOpen(false)
+      setIsInvoiceOpen(false)
+    }
+
+    applyBrowserRoute()
+    window.addEventListener('popstate', applyBrowserRoute)
+    return () => window.removeEventListener('popstate', applyBrowserRoute)
+  }, [])
+
+  useEffect(() => {
+    if (!isCheckoutOpen) return
+    const route = readStoreRoute()
+    const routeNeedsOrder = route === 'checkout-review'
+    const routeNeedsPayment = route === 'checkout-complete'
+    if (checkoutDraft && (!routeNeedsOrder || checkoutOrder) && (!routeNeedsPayment || checkoutPayment)) return
+
+    replaceWithStoreHome()
+    window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }))
+  }, [checkoutDraft, checkoutOrder, checkoutPayment, isCheckoutOpen])
+
+  useEffect(() => {
+    if (!isInvoiceOpen || checkoutInvoice) return
+    replaceWithStoreHome()
+    window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }))
+  }, [checkoutInvoice, isInvoiceOpen])
+
+  useEffect(() => {
     getCatalogProducts()
       .then((products) => setCatalogItems(products.map((product) => ({
         ...product,
@@ -442,6 +579,21 @@ export function HomePage() {
         setSelectedCartVariantIds([])
       })
   }, [authToken])
+
+  useEffect(() => {
+    if (!isOrdersOpen || !authToken) return
+    let active = true
+    window.queueMicrotask(() => {
+      if (!active) return
+      setOrdersError('')
+      setIsOrdersLoading(true)
+      getOrders(authToken)
+        .then((nextOrders) => { if (active) setOrders(nextOrders) })
+        .catch((error) => { if (active) setOrdersError(error instanceof Error ? error.message : 'Your orders are temporarily unavailable.') })
+        .finally(() => { if (active) setIsOrdersLoading(false) })
+    })
+    return () => { active = false }
+  }, [authToken, isOrdersOpen])
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -575,29 +727,79 @@ export function HomePage() {
     setExperienceProduct(product.label)
   }
 
+  const leaveManagedView = (fallback: () => void) => {
+    const navigation = readStoreNavigation()
+    if (readStoreRoute() !== 'home' && navigation?.owned) {
+      window.history.back()
+      return
+    }
+    if (readStoreRoute() !== 'home') replaceWithStoreHome()
+    fallback()
+  }
+
   const openCatalog = (view: CatalogView, category: GearTarget | null = null) => {
     setCatalogView(view)
     setProductFocus(category)
     setCatalogSubtype(null)
     setIsCategoryMenuOpen(false)
+    setIsCartOpen(false)
+    setIsAccountOpen(false)
+    setIsCheckoutOpen(false)
+    setIsOrdersOpen(false)
+    setIsInvoiceOpen(false)
+    pushStoreRoute<CatalogNavigationData>('shop', { catalogView: view, category })
+  }
+
+  const openCart = (navigation: 'push' | 'replace' = 'push') => {
+    setIsCartOpen(true)
+    setIsAccountOpen(false)
+    setIsCheckoutOpen(false)
+    setIsOrdersOpen(false)
+    setIsInvoiceOpen(false)
+    if (navigation === 'replace') replaceStoreRoute('cart')
+    else pushStoreRoute('cart')
+  }
+
+  const showAccount = () => {
+    if (!authUser) {
+      setPendingCartItem(null)
+      setPendingCheckout(null)
+    }
+    if (authUser) {
+      setIsAccountOpen((open) => !open)
+      return
+    }
+    setIsAccountOpen(true)
+    setIsCartOpen(false)
+    setIsCheckoutOpen(false)
+    setIsOrdersOpen(false)
+    setIsInvoiceOpen(false)
+    if (readStoreRoute() !== 'account') pushStoreRoute('account')
   }
 
   const openAccount = () => {
     setAuthError('')
     setAuthNotice('')
-    if (!authUser) {
-      setPendingCartItem(null)
-      setPendingCheckout(null)
-    }
-    setIsAccountOpen((open) => authUser ? !open : true)
+    showAccount()
+  }
+
+  const requireAccount = (message: string) => {
+    setAuthError(message)
+    setAuthNotice('')
+    setIsAccountOpen(true)
+    setIsCartOpen(false)
+    setIsCheckoutOpen(false)
+    setIsOrdersOpen(false)
+    setIsInvoiceOpen(false)
+    if (readStoreRoute() !== 'account') pushStoreRoute('account')
   }
 
   const closeAccount = () => {
-    setIsAccountOpen(false)
     setAuthError('')
     setAuthNotice('')
     setPendingCartItem(null)
     setPendingCheckout(null)
+    leaveManagedView(() => setIsAccountOpen(false))
   }
 
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
@@ -631,13 +833,14 @@ export function HomePage() {
       saveToken(session.accessToken)
       setAuthToken(session.accessToken)
       setAuthUser(session.user)
-      setIsAccountOpen(false)
       if (pendingCartItem) {
-        commitAddToCart(pendingCartItem)
+        commitAddToCart(pendingCartItem, 'replace')
         setPendingCartItem(null)
       } else if (pendingCheckout) {
-        openCheckout(pendingCheckout)
+        openCheckout(pendingCheckout, 'replace')
         setPendingCheckout(null)
+      } else {
+        leaveManagedView(() => setIsAccountOpen(false))
       }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Something went wrong. Try again.')
@@ -656,6 +859,7 @@ export function HomePage() {
     setSelectedCartVariantIds([])
     setIsOrdersOpen(false)
     setOrders([])
+    if (readStoreRoute() === 'orders') replaceWithStoreHome()
   }
 
   const resendAccountVerification = async () => {
@@ -670,19 +874,15 @@ export function HomePage() {
     }
   }
 
-  const openOrders = async () => {
+  const openOrders = () => {
     if (!authToken) return
     setIsAccountOpen(false)
     setIsOrdersOpen(true)
     setOrdersError('')
-    setIsOrdersLoading(true)
-    try {
-      setOrders(await getOrders(authToken))
-    } catch (error) {
-      setOrdersError(error instanceof Error ? error.message : 'Your orders are temporarily unavailable.')
-    } finally {
-      setIsOrdersLoading(false)
-    }
+    setIsCartOpen(false)
+    setIsCheckoutOpen(false)
+    setIsInvoiceOpen(false)
+    pushStoreRoute('orders')
   }
 
   const openOrderInvoice = async (orderReference: string) => {
@@ -692,6 +892,7 @@ export function HomePage() {
     try {
       setCheckoutInvoice(await getInvoice(authToken, orderReference))
       setIsInvoiceOpen(true)
+      pushStoreRoute('invoice')
     } catch (error) {
       setOrdersError(error instanceof Error ? error.message : 'That invoice is temporarily unavailable.')
     } finally {
@@ -699,7 +900,7 @@ export function HomePage() {
     }
   }
 
-  const commitAddToCart = (item: CatalogItem) => {
+  const commitAddToCart = (item: CatalogItem, navigation: 'push' | 'replace' = 'push') => {
     setCartLines((current) => {
       const existing = current.find((line) => line.variantId === item.variantId)
       return existing
@@ -709,7 +910,7 @@ export function HomePage() {
         : [...current, { variantId: item.variantId, quantity: 1 }]
     })
     setSelectedCartVariantIds((current) => current.includes(item.variantId) ? current : [...current, item.variantId])
-    setIsCartOpen(true)
+    openCart(navigation)
   }
 
   const addToCart = (item: CatalogItem) => {
@@ -717,8 +918,7 @@ export function HomePage() {
       setPendingCheckout(null)
       setPendingCartItem(item)
       setAuthMode('login')
-      setAuthError('Log in or create an account to save gear to your cart.')
-      setIsAccountOpen(true)
+      requireAccount('Log in or create an account to save gear to your cart.')
       return
     }
     commitAddToCart(item)
@@ -751,8 +951,9 @@ export function HomePage() {
     setSelectedCartVariantIds(selectedCartVariantIds.length === cartLines.length ? [] : cartLines.map((line) => line.variantId))
   }
 
-  const openCheckout = (draft: CheckoutDraft) => {
+  const openCheckout = (draft: CheckoutDraft, navigation: 'push' | 'replace' = 'push') => {
     setCheckoutDraft(draft)
+    setIsCheckoutOpen(true)
     setCheckoutStep('delivery')
     setCheckoutOrder(null)
     setCheckoutPayment(null)
@@ -762,6 +963,10 @@ export function HomePage() {
     setCheckoutIdempotencyKey(crypto.randomUUID())
     setPaymentIdempotencyKey(crypto.randomUUID())
     setIsCartOpen(false)
+    setIsAccountOpen(false)
+    setIsOrdersOpen(false)
+    if (navigation === 'replace') replaceStoreRoute<CheckoutNavigationData>('checkout-delivery', { depth: 1 })
+    else pushStoreRoute<CheckoutNavigationData>('checkout-delivery', { depth: 1 })
   }
 
   const startCheckout = (draft: CheckoutDraft) => {
@@ -770,9 +975,8 @@ export function HomePage() {
       setPendingCartItem(null)
       setPendingCheckout(draft)
       setAuthMode('login')
-      setAuthError('Log in or create an account to continue to checkout.')
-      setIsAccountOpen(true)
       setIsCartOpen(false)
+      requireAccount('Log in or create an account to continue to checkout.')
       return
     }
     openCheckout(draft)
@@ -788,6 +992,7 @@ export function HomePage() {
     const data = new FormData(event.currentTarget)
     setCheckoutError('')
     setIsCheckoutSubmitting(true)
+    checkoutSubmittingRouteRef.current = 'checkout-delivery'
     try {
       const order = await createOrder(authToken, checkoutIdempotencyKey, checkoutDraft.source, checkoutDraft.lines, {
         recipientName: String(data.get('recipientName') ?? ''),
@@ -801,9 +1006,12 @@ export function HomePage() {
       })
       setCheckoutOrder(order)
       setCheckoutStep('review')
+      checkoutSubmittingRouteRef.current = null
+      pushStoreRoute<CheckoutNavigationData>('checkout-review', { depth: 2 })
     } catch (error) {
       setCheckoutError(error instanceof Error ? error.message : 'Checkout is unavailable right now. Try again.')
     } finally {
+      checkoutSubmittingRouteRef.current = null
       setIsCheckoutSubmitting(false)
     }
   }
@@ -816,10 +1024,20 @@ export function HomePage() {
     }
     setCheckoutError('')
     setIsCheckoutSubmitting(true)
+    checkoutSubmittingRouteRef.current = 'checkout-review'
     try {
       const payment = await completeDemoPayment(authToken, paymentIdempotencyKey, checkoutOrder.orderReference)
       setCheckoutPayment(payment)
       setCheckoutStep('complete')
+      checkoutSubmittingRouteRef.current = null
+      const checkoutNavigation = readStoreNavigation<CheckoutNavigationData>()
+      const checkoutDepth = checkoutNavigation?.data?.depth ?? 1
+      if (checkoutNavigation?.owned && checkoutDepth > 0) {
+        pendingCheckoutCompletionRef.current = true
+        window.history.go(-checkoutDepth)
+      } else {
+        replaceStoreRoute<CheckoutNavigationData>('checkout-complete', { depth: 1 })
+      }
       try {
         setCheckoutInvoice(await getInvoice(authToken, checkoutOrder.orderReference))
       } catch (error) {
@@ -833,16 +1051,43 @@ export function HomePage() {
     } catch (error) {
       setCheckoutError(error instanceof Error ? error.message : 'Payment could not be completed. Try again.')
     } finally {
+      checkoutSubmittingRouteRef.current = null
       setIsCheckoutSubmitting(false)
     }
   }
 
   const closeCheckout = () => {
     if (isCheckoutSubmitting) return
-    setCheckoutDraft(null)
     setCheckoutError('')
+    const checkoutNavigation = readStoreNavigation<CheckoutNavigationData>()
+    const depth = checkoutNavigation?.data?.depth ?? 1
+    if (readStoreRoute().startsWith('checkout-') && checkoutNavigation?.owned) {
+      window.history.go(-depth)
+      return
+    }
+    if (readStoreRoute() !== 'home') replaceWithStoreHome()
+    setIsCheckoutOpen(false)
     setIsInvoiceOpen(false)
   }
+
+  const returnToDelivery = () => {
+    if (isCheckoutSubmitting) return
+    const navigation = readStoreNavigation<CheckoutNavigationData>()
+    if (readStoreRoute() === 'checkout-review' && navigation?.owned && (navigation.data?.depth ?? 1) > 1) {
+      window.history.back()
+      return
+    }
+    setCheckoutStep('delivery')
+    replaceStoreRoute<CheckoutNavigationData>('checkout-delivery', { depth: 1 })
+  }
+
+  const openInvoice = () => {
+    if (!checkoutInvoice) return
+    setIsInvoiceOpen(true)
+    pushStoreRoute('invoice')
+  }
+
+  const closeInvoice = () => leaveManagedView(() => setIsInvoiceOpen(false))
 
   const checkoutItems = checkoutDraft?.lines.flatMap((line) => {
     const product = catalogItems.find((item) => item.variantId === line.variantId)
@@ -871,7 +1116,7 @@ export function HomePage() {
             Shop all gear <span aria-hidden="true">→</span>
           </button>
           <a className="nav-action" href="#how-it-works">Get my recommendation <span aria-hidden="true">→</span></a>
-          <button className="nav-cart" type="button" onClick={() => setIsCartOpen(true)} aria-label={`Open cart with ${cartCount} items`}>
+          <button className="nav-cart" type="button" onClick={() => openCart()} aria-label={`Open cart with ${cartCount} items`}>
             <span className="nav-cart-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path d="M3 4h2.2l1.55 8.05a2 2 0 0 0 1.96 1.62h7.72a2 2 0 0 0 1.94-1.5L19.7 7H6" />
@@ -1234,7 +1479,7 @@ export function HomePage() {
                 <h2 id="catalog-title">{catalogView.title}</h2>
                 <p>{catalogView.source === 'recommendation' ? 'Matched to your device and the way you want to play.' : 'Start with the full collection, then narrow it only if you want to.'}</p>
               </div>
-              <button className="catalog-close" type="button" onClick={() => setCatalogView(null)} aria-label="Close product catalogue">×</button>
+              <button className="catalog-close" type="button" onClick={() => leaveManagedView(() => setCatalogView(null))} aria-label="Close product catalogue">×</button>
             </header>
 
             {catalogView.allowedCategories.length > 1 && (
@@ -1298,7 +1543,7 @@ export function HomePage() {
 
       {isCartOpen && (
         <section className="cart-overlay" role="dialog" aria-modal="true" aria-labelledby="cart-title">
-          <button className="cart-backdrop" type="button" onClick={() => setIsCartOpen(false)} aria-label="Close cart" />
+          <button className="cart-backdrop" type="button" onClick={() => leaveManagedView(() => setIsCartOpen(false))} aria-label="Close cart" />
           <aside className="cart-panel">
             <header className="cart-header">
               <div>
@@ -1306,13 +1551,13 @@ export function HomePage() {
                 <h2 id="cart-title">Your cart.</h2>
                 <span>{cartCount} {cartCount === 1 ? 'item' : 'items'}</span>
               </div>
-              <button className="cart-close" type="button" onClick={() => setIsCartOpen(false)} aria-label="Close cart">×</button>
+              <button className="cart-close" type="button" onClick={() => leaveManagedView(() => setIsCartOpen(false))} aria-label="Close cart">×</button>
             </header>
 
             {cartItems.length === 0 ? (
               <div className="cart-empty">
                 <p>Your next setup starts with one piece of gear.</p>
-                <button type="button" onClick={() => setIsCartOpen(false)}>Continue exploring <span aria-hidden="true">→</span></button>
+                <button type="button" onClick={() => leaveManagedView(() => setIsCartOpen(false))}>Continue exploring <span aria-hidden="true">→</span></button>
               </div>
             ) : (
               <>
@@ -1359,7 +1604,7 @@ export function HomePage() {
                     disabled={!selectedCartItems.length}
                     onClick={() => startCheckout({ source: 'CART', lines: selectedCartItems.map(({ variantId, quantity }) => ({ variantId, quantity })) })}
                   >{selectedCartItems.length ? 'Checkout selected' : 'Select gear to checkout'} <span aria-hidden="true">→</span></button>
-                  <button className="cart-continue" type="button" onClick={() => setIsCartOpen(false)}>Continue shopping</button>
+                  <button className="cart-continue" type="button" onClick={() => leaveManagedView(() => setIsCartOpen(false))}>Continue shopping</button>
                 </footer>
               </>
             )}
@@ -1367,7 +1612,7 @@ export function HomePage() {
         </section>
       )}
 
-      {checkoutDraft && (
+      {isCheckoutOpen && checkoutDraft && (
         <section ref={checkoutRef} className="checkout-overlay" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
           <div className="checkout-shell">
             <header className="checkout-header">
@@ -1429,7 +1674,7 @@ export function HomePage() {
                     <div className="checkout-address-review">
                       <small>Deliver to</small>
                       <p>{checkoutOrder.delivery.recipientName}<br />{checkoutOrder.delivery.addressLine1}{checkoutOrder.delivery.addressLine2 ? `, ${checkoutOrder.delivery.addressLine2}` : ''}<br />{checkoutOrder.delivery.suburb} {checkoutOrder.delivery.state} {checkoutOrder.delivery.postcode}</p>
-                      <button type="button" onClick={() => setCheckoutStep('delivery')}>Change details</button>
+                      <button type="button" onClick={returnToDelivery} disabled={isCheckoutSubmitting}>Change details</button>
                     </div>
                     <div className="payment-block">
                       <div>
@@ -1459,7 +1704,7 @@ export function HomePage() {
                     </dl>
                     {checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}
                     <div className="checkout-complete-actions">
-                      <button className="checkout-primary" type="button" onClick={() => setIsInvoiceOpen(true)} disabled={!checkoutInvoice}>View tax invoice <span aria-hidden="true">→</span></button>
+                      <button className="checkout-primary" type="button" onClick={openInvoice} disabled={!checkoutInvoice}>View tax invoice <span aria-hidden="true">→</span></button>
                       <button className="checkout-secondary" type="button" onClick={closeCheckout}>Continue exploring</button>
                     </div>
                   </div>
@@ -1495,10 +1740,10 @@ export function HomePage() {
         <section className="orders-overlay" role="dialog" aria-modal="true" aria-labelledby="orders-title">
           <div className="orders-shell">
             <header className="orders-header">
-              <a className="brand" href="#top" onClick={(event) => { event.preventDefault(); setIsOrdersOpen(false) }} aria-label="Close orders and return to JG MOLI">
+              <a className="brand" href="#top" onClick={(event) => { event.preventDefault(); leaveManagedView(() => setIsOrdersOpen(false)) }} aria-label="Close orders and return to JG MOLI">
                 <span className="brand-monogram">JG</span><span>MOLI</span>
               </a>
-              <button type="button" onClick={() => setIsOrdersOpen(false)} aria-label="Close orders">×</button>
+              <button type="button" onClick={() => leaveManagedView(() => setIsOrdersOpen(false))} aria-label="Close orders">×</button>
             </header>
 
             <div className="orders-heading">
@@ -1558,12 +1803,12 @@ export function HomePage() {
       {isInvoiceOpen && checkoutInvoice && (
         <section className="invoice-overlay" role="dialog" aria-modal="true" aria-labelledby="invoice-title">
           <div className="invoice-toolbar">
-            <a className="brand" href="#top" onClick={(event) => { event.preventDefault(); setIsInvoiceOpen(false) }} aria-label="Close invoice and return to JG MOLI">
+            <a className="brand" href="#top" onClick={(event) => { event.preventDefault(); closeInvoice() }} aria-label="Close invoice and return to JG MOLI">
               <span className="brand-monogram">JG</span><span>MOLI</span>
             </a>
             <div>
               <button type="button" onClick={() => window.print()}>Print / save PDF <span aria-hidden="true">↓</span></button>
-              <button type="button" onClick={() => setIsInvoiceOpen(false)}>Close</button>
+              <button type="button" onClick={closeInvoice}>Close</button>
             </div>
           </div>
           <article className="invoice-sheet">
