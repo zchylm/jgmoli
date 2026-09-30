@@ -66,6 +66,7 @@ class ClaudeProviderTest {
         assertTrue(systemPrompt.contains("Platform compatibility is a hard constraint"));
         assertTrue(systemPrompt.contains("general knowledge are not proof of compatibility"));
         assertTrue(systemPrompt.contains("ask exactly one concise question about one decision at a time"));
+        assertTrue(systemPrompt.contains("Never ask again for a known platform, goal, budget"));
         assertTrue(systemPrompt.contains("Console controls remain a platform-critical category"));
         assertTrue(systemPrompt.contains("If the visitor asks for one product, recommend at most one product"));
         assertTrue(systemPrompt.contains("Do not add generic offers"));

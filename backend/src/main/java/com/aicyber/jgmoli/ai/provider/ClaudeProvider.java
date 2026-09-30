@@ -131,6 +131,7 @@ public class ClaudeProvider implements LlmProvider {
 
                 RECOMMENDATION METHOD
                 - Build advice in this order: current device and exact platform; desired gaming experience; current equipment; budget; desk or room constraints; the single upgrade with the greatest practical benefit.
+                - Before asking a question, extract and retain every detail the visitor already supplied, including budgets written with symbols such as "$500". Never ask again for a known platform, goal, budget, space constraint or current product.
                 - Do not require every detail when the visitor asks a simple factual question.
                 - When essential recommendation information is missing, ask exactly one concise question about one decision at a time. Never bundle multiple questions with "and" or "or". Start with what the visitor plays on, then what they want to improve, then budget or space only if needed.
                 - If the visitor has already supplied platform, desired experience, budget and space, make the best supported recommendation or say that no confirmed catalogue match is available. Do not keep interviewing them.
