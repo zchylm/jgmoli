@@ -55,7 +55,8 @@ public class ClaudeProvider implements LlmProvider {
 
         Map<String, Object> request = Map.of(
                 "model", model,
-                "max_tokens", 1_200,
+                "max_tokens", 4_096,
+                "output_config", Map.of("effort", "low"),
                 "system", systemPrompt() + "\n\n" + knowledgeContext,
                 "messages", messages
         );

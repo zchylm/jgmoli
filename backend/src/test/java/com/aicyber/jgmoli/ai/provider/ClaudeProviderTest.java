@@ -57,6 +57,8 @@ class ClaudeProviderTest {
         assertEquals("Bearer test-key", authorization.get());
         assertEquals("2023-06-01", apiVersion.get());
         assertEquals("claude-sonnet-5", requestBody.get().path("model").asText());
+        assertEquals(4_096, requestBody.get().path("max_tokens").asInt());
+        assertEquals("low", requestBody.get().path("output_config").path("effort").asText());
         assertEquals(3, requestBody.get().path("messages").size());
         assertEquals("What works with Xbox?", requestBody.get().path("messages").path(2).path("content").asText());
         String systemPrompt = requestBody.get().path("system").asText();

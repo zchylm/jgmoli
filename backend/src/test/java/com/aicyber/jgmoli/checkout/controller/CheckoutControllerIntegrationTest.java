@@ -6,12 +6,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,6 +27,9 @@ class CheckoutControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void createsAnInvoiceReadyOrderAndCompletesAnIdempotentDemoPayment() throws Exception {
@@ -123,6 +128,26 @@ class CheckoutControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].status").value("PAID"))
                 .andExpect(jsonPath("$[0].items[0].brand").value("LG"))
                 .andExpect(jsonPath("$[0].items[0].productName").value("UltraGear 27GS60F 27-inch 180Hz Monitor"));
+
+        Integer orderEmails = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM transactional_email_outbox email
+                JOIN sales_orders orders ON orders.id = email.aggregate_id
+                WHERE email.aggregate_type = 'ORDER'
+                  AND email.message_type = 'ORDER_CREATED'
+                  AND orders.order_reference = ?
+                """, Integer.class, orderReference);
+        Integer invoiceEmails = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM transactional_email_outbox email
+                JOIN sales_invoices invoices ON invoices.id = email.aggregate_id
+                JOIN sales_orders orders ON orders.id = invoices.order_id
+                WHERE email.aggregate_type = 'INVOICE'
+                  AND email.message_type = 'INVOICE_ISSUED'
+                  AND orders.order_reference = ?
+                """, Integer.class, orderReference);
+        assertEquals(1, orderEmails);
+        assertEquals(1, invoiceEmails);
     }
 
     @Test
