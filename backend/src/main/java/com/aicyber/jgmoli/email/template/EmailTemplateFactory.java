@@ -96,7 +96,7 @@ public class EmailTemplateFactory {
                   </tr>
                   <tr class="email-detail">
                     <td style="padding:17px 20px;color:#727877;font-size:10px;font-weight:700;letter-spacing:1.5px;">TAX INVOICE</td>
-                    <td style="padding:17px 20px;color:#171b1c;font-size:13px;font-weight:700;text-align:right;word-break:break-word;">%s</td>
+                    <td style="padding:17px 20px;color:#171b1c;font-size:13px;font-weight:700;text-align:right;word-break:break-word;">%s<br><span style="color:#5b9697;font-size:9px;letter-spacing:1.2px;">PDF ATTACHED</span></td>
                   </tr>
                 </table>
                 <table role="presentation" style="width:100%%;table-layout:fixed;margin-top:22px;border-collapse:collapse;background:#f1f0eb;">
@@ -109,11 +109,13 @@ public class EmailTemplateFactory {
                   </tr>
                 </table>
                 <div style="margin-top:30px;">%s</div>
-                <p style="margin:24px 0 0;color:#747a79;font-size:12px;line-height:1.65;">The attached PDF is your tax invoice. Keep it for your records; your order details also remain available in My Orders.</p>
+                <p style="margin:24px 0 0;color:#747a79;font-size:12px;line-height:1.65;">We’ll email you again when your order ships.</p>
+                <p style="margin:8px 0 0;color:#747a79;font-size:12px;line-height:1.65;">Questions? Reply to this email or contact <a href="mailto:%s" style="color:#344f50;">%s</a>.</p>
                 <p style="margin:18px 0 0;color:#8a8f8e;font-size:11px;line-height:1.6;">%s · ABN %s</p>
                 """.formatted(escape(displayName(invoice.buyerName())), escape(invoice.orderReference()),
                 escape(invoice.invoiceNumber()), rows, money(invoice.amountPaidCents(), invoice.currency()),
-                button("VIEW ORDER", accountUrl), escape(invoice.sellerLegalName()), escape(invoice.sellerAbn()));
+                button("VIEW ORDER", accountUrl), escape(invoice.sellerEmail()), escape(invoice.sellerEmail()),
+                escape(invoice.sellerLegalName()), escape(invoice.sellerAbn()));
         return new EmailContent(subject, text, shell(
                 "Payment confirmed for order " + escape(invoice.orderReference()), content));
     }

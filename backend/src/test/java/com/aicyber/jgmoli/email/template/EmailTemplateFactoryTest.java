@@ -38,6 +38,10 @@ class EmailTemplateFactoryTest {
         assertTrue(content.subject().startsWith("Order confirmed JGM-20260930-001038"));
         assertTrue(content.htmlBody().contains("Your setup is confirmed."));
         assertTrue(content.htmlBody().contains("tax invoice is attached as a PDF"));
+        assertTrue(content.htmlBody().contains("PDF ATTACHED"));
+        assertTrue(content.htmlBody().contains("We’ll email you again when your order ships."));
+        assertTrue(content.htmlBody().contains("mailto:support@jgmoli.com.au"));
+        assertFalse(content.htmlBody().contains("Keep it for your records"));
         assertTrue(content.htmlBody().contains("background:#fbfaf7"));
         assertFalse(content.htmlBody().contains("Your world is on its way."));
         Files.createDirectories(Path.of("target"));
