@@ -149,7 +149,7 @@ class CheckoutControllerIntegrationTest {
                   AND email.message_type = 'INVOICE_ISSUED'
                   AND orders.order_reference = ?
                 """, Integer.class, orderReference);
-        assertEquals(1, orderEmails);
+        assertEquals(0, orderEmails);
         assertEquals(1, invoiceEmails);
 
         var attachment = jdbcTemplate.queryForMap("""

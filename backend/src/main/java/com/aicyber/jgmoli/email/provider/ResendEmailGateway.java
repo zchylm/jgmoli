@@ -26,7 +26,8 @@ public class ResendEmailGateway implements EmailGateway {
     private final HttpClient httpClient;
     private final String apiKey;
     private final String endpoint;
-    private final String from;
+    private final String ordersFrom;
+    private final String supportFrom;
     private final String replyTo;
 
     @Autowired
@@ -34,19 +35,22 @@ public class ResendEmailGateway implements EmailGateway {
             ObjectMapper json,
             @Value("${jgmoli.email.resend.api-key:}") String apiKey,
             @Value("${jgmoli.email.resend.base-url:https://api.resend.com}") String baseUrl,
-            @Value("${jgmoli.email.from}") String from,
+            @Value("${jgmoli.email.orders-from}") String ordersFrom,
+            @Value("${jgmoli.email.support-from}") String supportFrom,
             @Value("${jgmoli.email.reply-to:}") String replyTo
     ) {
         this(json, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(), apiKey,
-                baseUrl.replaceAll("/+$", "") + "/emails", from, replyTo);
+                baseUrl.replaceAll("/+$", "") + "/emails", ordersFrom, supportFrom, replyTo);
     }
 
-    ResendEmailGateway(ObjectMapper json, HttpClient httpClient, String apiKey, String endpoint, String from, String replyTo) {
+    ResendEmailGateway(ObjectMapper json, HttpClient httpClient, String apiKey, String endpoint,
+                       String ordersFrom, String supportFrom, String replyTo) {
         this.json = json;
         this.httpClient = httpClient;
         this.apiKey = apiKey;
         this.endpoint = endpoint;
-        this.from = from;
+        this.ordersFrom = ordersFrom;
+        this.supportFrom = supportFrom;
         this.replyTo = replyTo;
     }
 
@@ -55,8 +59,8 @@ public class ResendEmailGateway implements EmailGateway {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("JGMOLI_RESEND_API_KEY is not configured");
         }
-        if (from == null || from.isBlank()) {
-            throw new IllegalStateException("JGMOLI_EMAIL_FROM is not configured");
+        if (fromAddress(email) == null || fromAddress(email).isBlank()) {
+            throw new IllegalStateException("The email sender is not configured");
         }
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
@@ -86,7 +90,7 @@ public class ResendEmailGateway implements EmailGateway {
 
     private String payload(QueuedEmail email) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("from", from);
+        body.put("from", fromAddress(email));
         body.put("to", List.of(email.recipientEmail()));
         body.put("subject", email.subject());
         if (email.htmlBody() != null) body.put("html", email.htmlBody());
@@ -105,6 +109,14 @@ public class ResendEmailGateway implements EmailGateway {
         } catch (JacksonException exception) {
             throw new IllegalStateException("Email payload could not be created", exception);
         }
+    }
+
+    private String fromAddress(QueuedEmail email) {
+        return isOrderMessage(email.messageType()) ? ordersFrom : supportFrom;
+    }
+
+    private boolean isOrderMessage(String messageType) {
+        return "INVOICE_ISSUED".equals(messageType) || (messageType != null && messageType.startsWith("ORDER_"));
     }
 
     private String safeProviderError(String responseBody) {

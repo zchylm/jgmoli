@@ -1,8 +1,6 @@
 package com.aicyber.jgmoli.email.template;
 
 import com.aicyber.jgmoli.admin.dto.AdminDtos;
-import com.aicyber.jgmoli.checkout.dto.OrderLineResponse;
-import com.aicyber.jgmoli.checkout.dto.OrderResponse;
 import com.aicyber.jgmoli.invoice.dto.InvoiceLineResponse;
 import com.aicyber.jgmoli.invoice.dto.InvoiceResponse;
 import org.springframework.stereotype.Component;
@@ -16,7 +14,7 @@ public class EmailTemplateFactory {
     private static final Locale AUSTRALIA = Locale.forLanguageTag("en-AU");
 
     public EmailContent verification(String name, String actionUrl) {
-        String subject = "Verify your JG MOLI email";
+        String subject = "Confirm your JG MOLI email";
         String text = """
                 Hi %s,
 
@@ -25,16 +23,16 @@ public class EmailTemplateFactory {
 
                 This link expires in 24 hours. If you did not create a JG MOLI account, you can ignore this email.
 
-                JG MOLI
-                Leave the noise. Enter your world.
+                JG MOLI Support
                 """.formatted(displayName(name), actionUrl);
-        return new EmailContent(subject, text, frame(
-                "YOUR JG MOLI",
-                "One step closer.",
-                "Confirm your email to keep your account, recommendations and future orders connected.",
-                "VERIFY EMAIL",
+        return new EmailContent(subject, text, messageFrame(
+                "ACCOUNT",
+                "Confirm your email.",
+                "Hi " + displayName(name) + ",",
+                "One click keeps your account, recommendations and future orders connected.",
+                "CONFIRM EMAIL",
                 actionUrl,
-                "This link expires in 24 hours. If you did not create this account, no action is needed."
+                "This secure link expires in 24 hours. If you did not create this account, no action is needed."
         ));
     }
 
@@ -43,56 +41,26 @@ public class EmailTemplateFactory {
         String text = """
                 Hi %s,
 
-                Reset your JG MOLI password:
+                Use this secure link to reset your JG MOLI password:
                 %s
 
-                This link expires in 30 minutes. If you did not request a reset, you can ignore this email.
+                This link expires in 30 minutes. If you did not request it, your password has not changed.
+
+                JG MOLI Support
                 """.formatted(displayName(name), actionUrl);
-        return new EmailContent(subject, text, frame(
+        return new EmailContent(subject, text, messageFrame(
                 "ACCOUNT ACCESS",
-                "Reset. Return. Play.",
-                "Choose a new password and get back to your world.",
+                "Reset your password.",
+                "Hi " + displayName(name) + ",",
+                "Choose a new password, then return to your setup.",
                 "RESET PASSWORD",
                 actionUrl,
-                "This link expires in 30 minutes. If you did not request it, your password has not changed."
-        ));
-    }
-
-    public EmailContent orderCreated(OrderResponse order, String accountUrl) {
-        String subject = "Order " + order.orderReference() + " is ready for payment";
-        String itemText = order.items().stream()
-                .map(item -> "%d × %s — %s".formatted(item.quantity(), item.productName(), money(item.lineTotalCents(), order.currency())))
-                .reduce((left, right) -> left + "\n" + right).orElse("");
-        String text = """
-                Hi %s,
-
-                We saved order %s.
-
-                %s
-
-                Total including GST: %s
-
-                Return to JG MOLI to review and complete payment:
-                %s
-                """.formatted(displayName(order.delivery().recipientName()), order.orderReference(), itemText,
-                money(order.totalCents(), order.currency()), accountUrl);
-        String rows = order.items().stream().map(item -> orderRow(item, order.currency()))
-                .reduce((left, right) -> left + right).orElse("");
-        return new EmailContent(subject, text, commerceFrame(
-                "ORDER SAVED",
-                "Your gear is lined up.",
-                "Order " + escape(order.orderReference()),
-                rows,
-                "TOTAL INCLUDING GST",
-                money(order.totalCents(), order.currency()),
-                "REVIEW ORDER",
-                accountUrl,
-                "Payment has not been taken yet. Your final order is confirmed after successful payment."
+                "This secure link expires in 30 minutes. If you did not request it, your password has not changed."
         ));
     }
 
     public EmailContent invoiceIssued(InvoiceResponse invoice, String accountUrl) {
-        String subject = "Tax invoice " + invoice.invoiceNumber() + " — JG MOLI";
+        String subject = "Order confirmed " + invoice.orderReference() + " · Tax invoice attached";
         String itemText = invoice.lines().stream()
                 .map(line -> "%d × %s — %s".formatted(line.quantity(), line.description(),
                         money(line.lineTotalIncGstCents(), invoice.currency())))
@@ -100,7 +68,7 @@ public class EmailTemplateFactory {
         String text = """
                 Hi %s,
 
-                Payment confirmed for order %s.
+                Your payment is confirmed for order %s.
                 Tax invoice: %s
 
                 %s
@@ -108,7 +76,7 @@ public class EmailTemplateFactory {
                 Amount paid: %s
                 GST included: %s
 
-                Sign in to JG MOLI to view your order and invoice:
+                Your PDF tax invoice is attached. You can also view the order in your JG MOLI account:
                 %s
 
                 %s | ABN %s
@@ -117,24 +85,44 @@ public class EmailTemplateFactory {
                 accountUrl, invoice.sellerLegalName(), invoice.sellerAbn());
         String rows = invoice.lines().stream().map(line -> invoiceRow(line, invoice.currency()))
                 .reduce((left, right) -> left + right).orElse("");
-        return new EmailContent(subject, text, commerceFrame(
-                "PAYMENT CONFIRMED",
-                "Your world is on its way.",
-                "Tax invoice " + escape(invoice.invoiceNumber()),
-                rows,
-                "AMOUNT PAID",
-                money(invoice.amountPaidCents(), invoice.currency()),
-                "VIEW ORDER & INVOICE",
-                accountUrl,
-                escape(invoice.sellerLegalName()) + " · ABN " + escape(invoice.sellerAbn())
-        ));
+        String content = """
+                <p style="margin:0 0 18px;color:#5b9697;font-size:11px;font-weight:700;letter-spacing:2.6px;">PAYMENT CONFIRMED</p>
+                <h1 class="email-headline" style="margin:0;color:#131718;font-size:38px;line-height:1.08;font-weight:500;letter-spacing:-1.4px;">Your setup is confirmed.</h1>
+                <p style="margin:20px 0 32px;color:#626968;font-size:15px;line-height:1.7;">Hi %s, your order is now confirmed. Your formal tax invoice is attached as a PDF.</p>
+                <table role="presentation" style="width:100%%;table-layout:fixed;border-collapse:collapse;border:1px solid #d9d9d3;">
+                  <tr class="email-detail">
+                    <td style="padding:17px 20px;border-bottom:1px solid #e2e1dc;color:#727877;font-size:10px;font-weight:700;letter-spacing:1.5px;">ORDER</td>
+                    <td style="padding:17px 20px;border-bottom:1px solid #e2e1dc;color:#171b1c;font-size:13px;font-weight:700;text-align:right;word-break:break-word;">%s</td>
+                  </tr>
+                  <tr class="email-detail">
+                    <td style="padding:17px 20px;color:#727877;font-size:10px;font-weight:700;letter-spacing:1.5px;">TAX INVOICE</td>
+                    <td style="padding:17px 20px;color:#171b1c;font-size:13px;font-weight:700;text-align:right;word-break:break-word;">%s</td>
+                  </tr>
+                </table>
+                <table role="presentation" style="width:100%%;table-layout:fixed;margin-top:22px;border-collapse:collapse;background:#f1f0eb;">
+                  <tbody>%s</tbody>
+                </table>
+                <table role="presentation" style="width:100%%;table-layout:fixed;border-collapse:collapse;background:#121819;">
+                  <tr class="email-total">
+                    <td style="padding:22px 20px;color:#aeb5b3;font-size:10px;font-weight:700;letter-spacing:1.7px;">AMOUNT PAID · GST INCLUDED</td>
+                    <td style="padding:22px 20px;color:#ffffff;font-size:25px;font-weight:700;text-align:right;">%s</td>
+                  </tr>
+                </table>
+                <div style="margin-top:30px;">%s</div>
+                <p style="margin:24px 0 0;color:#747a79;font-size:12px;line-height:1.65;">The attached PDF is your tax invoice. Keep it for your records; your order details also remain available in My Orders.</p>
+                <p style="margin:18px 0 0;color:#8a8f8e;font-size:11px;line-height:1.6;">%s · ABN %s</p>
+                """.formatted(escape(displayName(invoice.buyerName())), escape(invoice.orderReference()),
+                escape(invoice.invoiceNumber()), rows, money(invoice.amountPaidCents(), invoice.currency()),
+                button("VIEW ORDER", accountUrl), escape(invoice.sellerLegalName()), escape(invoice.sellerAbn()));
+        return new EmailContent(subject, text, shell(
+                "Payment confirmed for order " + escape(invoice.orderReference()), content));
     }
 
     public EmailContent fulfilmentUpdated(AdminDtos.OrderDetail order, String accountUrl) {
         String status = order.summary().fulfillmentStatus();
         String headline = switch (status) {
             case "SHIPPED" -> "Your gear is moving.";
-            case "DELIVERED" -> "Your world has arrived.";
+            case "DELIVERED" -> "Your setup has arrived.";
             case "CANCELLED" -> "Your order was cancelled.";
             default -> "Your order has been updated.";
         };
@@ -148,79 +136,90 @@ public class EmailTemplateFactory {
             default -> "Order " + order.summary().orderReference() + " was updated";
         };
         String text = "%s\n\n%s\n\n%s".formatted(headline, detail, accountUrl);
-        return new EmailContent(subject, text, frame(
+        return new EmailContent(subject, text, messageFrame(
                 "ORDER " + status,
                 headline,
+                "Order " + order.summary().orderReference(),
                 detail,
                 "VIEW ORDER",
                 accountUrl,
-                "Order " + order.summary().orderReference()
+                "You can see the latest order details in My Orders."
         ));
     }
 
-    private String orderRow(OrderLineResponse item, String currency) {
-        return itemRow(item.quantity(), item.brand() + " " + item.productName(), item.lineTotalCents(), currency);
-    }
-
     private String invoiceRow(InvoiceLineResponse item, String currency) {
-        return itemRow(item.quantity(), item.description(), item.lineTotalIncGstCents(), currency);
-    }
-
-    private String itemRow(int quantity, String description, long amount, String currency) {
         return """
-                <tr>
-                  <td style="padding:15px 0;border-bottom:1px solid #d7d6d1;color:#181b1c;font-size:14px;line-height:1.5;">%d × %s</td>
-                  <td style="padding:15px 0;border-bottom:1px solid #d7d6d1;color:#181b1c;font-size:14px;text-align:right;white-space:nowrap;">%s</td>
+                <tr class="email-item">
+                  <td style="width:68%%;padding:17px 20px;border-bottom:1px solid #d9d8d2;color:#1a1e1f;font-size:13px;line-height:1.45;word-break:break-word;">%d × %s<br><span style="color:#7a807f;font-size:10px;letter-spacing:.5px;">%s</span></td>
+                  <td style="width:32%%;padding:17px 20px;border-bottom:1px solid #d9d8d2;color:#1a1e1f;font-size:13px;font-weight:700;text-align:right;">%s</td>
                 </tr>
-                """.formatted(quantity, escape(description), money(amount, currency));
+                """.formatted(item.quantity(), escape(item.description()), escape(item.sku()),
+                money(item.lineTotalIncGstCents(), currency));
     }
 
-    private String frame(String eyebrow, String headline, String body, String button, String url, String note) {
-        return shell("""
-                <p style="margin:0 0 24px;color:#5b999b;font-size:12px;font-weight:700;letter-spacing:3px;">%s</p>
-                <h1 style="margin:0 0 22px;color:#f7f6f2;font-size:38px;line-height:1.05;font-weight:500;letter-spacing:-1.5px;">%s</h1>
-                <p style="margin:0 0 32px;color:#b8bcbb;font-size:16px;line-height:1.7;">%s</p>
+    private String messageFrame(String eyebrow, String headline, String greeting, String body,
+                                String button, String url, String note) {
+        String content = """
+                <p style="margin:0 0 18px;color:#5b9697;font-size:11px;font-weight:700;letter-spacing:2.6px;">%s</p>
+                <h1 class="email-headline" style="margin:0;color:#131718;font-size:38px;line-height:1.08;font-weight:500;letter-spacing:-1.4px;">%s</h1>
+                <p style="margin:26px 0 8px;color:#202526;font-size:15px;line-height:1.7;">%s</p>
+                <p style="margin:0 0 30px;color:#626968;font-size:15px;line-height:1.7;">%s</p>
                 %s
-                <p style="margin:28px 0 0;color:#777d7c;font-size:12px;line-height:1.6;">%s</p>
-                """.formatted(escape(eyebrow), escape(headline), escape(body), button(button, url), escape(note)));
+                <p style="margin:26px 0 0;padding-top:22px;border-top:1px solid #ddddd7;color:#777d7c;font-size:11px;line-height:1.65;">%s</p>
+                """.formatted(escape(eyebrow), escape(headline), escape(greeting), escape(body),
+                button(button, url), escape(note));
+        return shell(escape(headline), content);
     }
 
-    private String commerceFrame(String eyebrow, String headline, String reference, String rows,
-                                 String totalLabel, String total, String button, String url, String note) {
-        return shell("""
-                <p style="margin:0 0 20px;color:#5b999b;font-size:12px;font-weight:700;letter-spacing:3px;">%s</p>
-                <h1 style="margin:0 0 12px;color:#f7f6f2;font-size:36px;line-height:1.08;font-weight:500;letter-spacing:-1.5px;">%s</h1>
-                <p style="margin:0 0 28px;color:#929796;font-size:13px;letter-spacing:1px;">%s</p>
-                <table role="presentation" style="width:100%%;border-collapse:collapse;background:#f4f3ef;padding:0 20px;">
-                  <tbody>%s</tbody>
-                  <tfoot><tr>
-                    <td style="padding:20px 0 4px;color:#68706f;font-size:11px;font-weight:700;letter-spacing:1.6px;">%s</td>
-                    <td style="padding:20px 0 4px;color:#181b1c;font-size:22px;font-weight:700;text-align:right;">%s</td>
-                  </tr></tfoot>
-                </table>
-                <div style="margin-top:30px;">%s</div>
-                <p style="margin:26px 0 0;color:#777d7c;font-size:12px;line-height:1.6;">%s</p>
-                """.formatted(escape(eyebrow), escape(headline), escape(reference), rows,
-                escape(totalLabel), escape(total), button(button, url), note));
-    }
-
-    private String shell(String content) {
+    private String shell(String preheader, String content) {
         return """
-                <!doctype html><html><body style="margin:0;background:#ecebe6;font-family:Arial,Helvetica,sans-serif;">
-                  <table role="presentation" style="width:100%%;border-collapse:collapse;"><tr><td style="padding:36px 16px;">
-                    <table role="presentation" style="width:100%%;max-width:620px;margin:0 auto;border-collapse:collapse;background:#101617;">
-                      <tr><td style="padding:25px 36px;border-bottom:1px solid #293031;color:#f7f6f2;font-size:15px;font-weight:700;letter-spacing:4px;">JG <span style="color:#5b999b;">MOLI</span></td></tr>
-                      <tr><td style="padding:42px 36px 38px;">%s</td></tr>
-                      <tr><td style="padding:20px 36px;border-top:1px solid #293031;color:#656d6c;font-size:10px;letter-spacing:1.5px;">LEAVE THE NOISE. ENTER YOUR WORLD.</td></tr>
+                <!doctype html>
+                <html lang="en">
+                  <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <style>
+                      @media only screen and (max-width: 520px) {
+                        .email-body { padding: 34px 24px 32px !important; }
+                        .email-headline { font-size: 31px !important; }
+                        .email-header { padding: 21px 24px !important; }
+                        .email-detail td, .email-item td, .email-total td {
+                          display: block !important;
+                          width: auto !important;
+                          text-align: left !important;
+                          word-break: break-word !important;
+                        }
+                        .email-detail td:first-child { padding-bottom: 4px !important; border-bottom: 0 !important; }
+                        .email-detail td:last-child { padding-top: 4px !important; }
+                        .email-item td:first-child { padding-bottom: 4px !important; border-bottom: 0 !important; }
+                        .email-item td:last-child { padding-top: 4px !important; }
+                        .email-total td:first-child { padding-bottom: 4px !important; }
+                        .email-total td:last-child { padding-top: 4px !important; }
+                      }
+                    </style>
+                  </head>
+                  <body style="margin:0;padding:0;background:#efeee9;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%%;">
+                    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">%s</div>
+                    <table role="presentation" style="width:100%%;border-collapse:collapse;background:#efeee9;">
+                      <tr><td style="padding:32px 12px;">
+                        <table role="presentation" style="width:100%%;max-width:640px;table-layout:fixed;margin:0 auto;border-collapse:collapse;background:#fbfaf7;border:1px solid #d8d8d2;">
+                          <tr><td class="email-header" colspan="2" style="padding:24px 36px;background:#121819;color:#ffffff;font-size:14px;font-weight:700;letter-spacing:4px;">JG <span style="color:#70a9aa;">MOLI</span></td></tr>
+                          <tr><td class="email-body" colspan="2" style="padding:46px 44px 42px;">%s</td></tr>
+                          <tr>
+                            <td colspan="2" style="padding:21px 36px;border-top:1px solid #deded8;color:#858a89;font-size:9px;letter-spacing:1.5px;">
+                              LEAVE THE NOISE. ENTER YOUR WORLD.
+                            </td>
+                          </tr>
+                        </table>
+                      </td></tr>
                     </table>
-                  </td></tr></table>
-                </body></html>
-                """.formatted(content);
+                  </body>
+                </html>
+                """.formatted(preheader, content);
     }
 
     private String button(String label, String url) {
         return """
-                <a href="%s" style="display:inline-block;background:#f7f6f2;color:#111516;text-decoration:none;padding:16px 22px;font-size:12px;font-weight:700;letter-spacing:2px;">%s →</a>
+                <a href="%s" style="display:inline-block;background:#121819;color:#ffffff;text-decoration:none;padding:16px 22px;font-size:11px;font-weight:700;letter-spacing:1.8px;">%s&nbsp;&nbsp;→</a>
                 """.formatted(escape(url), escape(label));
     }
 

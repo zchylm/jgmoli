@@ -2,7 +2,6 @@ package com.aicyber.jgmoli.email.service;
 
 import com.aicyber.jgmoli.admin.dto.AdminDtos;
 import com.aicyber.jgmoli.auth.model.User;
-import com.aicyber.jgmoli.checkout.dto.OrderResponse;
 import com.aicyber.jgmoli.email.model.EmailDraft;
 import com.aicyber.jgmoli.email.model.EmailAttachment;
 import com.aicyber.jgmoli.email.template.EmailContent;
@@ -44,12 +43,6 @@ public class TransactionalEmailService {
         EmailContent content = templates.passwordReset(user.displayName(), storeUrl + "/?resetPassword=" + token);
         enqueue("PASSWORD_RESET", user.email(), user.displayName(), content,
                 "USER", user.id(), "password-reset:" + tokenId);
-    }
-
-    public void queueOrderCreated(OrderResponse order) {
-        EmailContent content = templates.orderCreated(order, storeUrl);
-        enqueue("ORDER_CREATED", order.customerEmail(), order.delivery().recipientName(), content,
-                "ORDER", order.id(), "order-created:" + order.id());
     }
 
     public void queueInvoiceIssued(InvoiceResponse invoice) {
