@@ -1,6 +1,9 @@
 export type StoreRoute =
   | 'home'
   | 'recommendation'
+  | 'cockpit-compare'
+  | 'racer-compare'
+  | 'arena-compare'
   | 'shop'
   | 'cart'
   | 'account'
@@ -27,6 +30,9 @@ export type RecommendationNavigationData = {
 type StaticStoreRoute = Exclude<StoreRoute, 'home' | 'recommendation'>
 
 const routeHashes: Record<StaticStoreRoute, string> = {
+  'cockpit-compare': '#/cockpit/compare',
+  'racer-compare': '#/racer/compare',
+  'arena-compare': '#/arena/compare',
   shop: '#/shop',
   cart: '#/cart',
   account: '#/account',

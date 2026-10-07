@@ -1,10 +1,24 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import competitiveHero from '../assets/site/hero-competitive-v3.jpg'
+import competitiveHeroAlternate from '../assets/site/hero-competitive-frame-b-v2.jpg'
 import immersiveHero from '../assets/site/hero-immersive-v3.jpg'
-import racingHero from '../assets/site/hero-racing-v3.jpg'
-import competitiveHeroAlternate from '../assets/site/hero-competitive-frame-b-v1.jpg'
 import immersiveHeroAlternate from '../assets/site/hero-immersive-frame-b-v1.jpg'
+import racingHero from '../assets/site/hero-racing-v3.jpg'
 import racingHeroAlternate from '../assets/site/hero-racing-frame-b-v6.png'
+import arenaHero from '../assets/site/hero-arena-v4.jpg'
+import arenaHeroAlternate from '../assets/site/hero-arena-frame-b-v1.jpg'
+import gearHero from '../assets/site/hero-gear-v1.jpg'
+import gearHeroAlternate from '../assets/site/hero-gear-frame-b-v1.jpg'
+import cockpitImage from '../assets/site/moli-cockpit-v2.jpg'
+import cockpitPlusImage from '../assets/site/moli-cockpit-plus-v2.jpg'
+import cockpitProImage from '../assets/site/moli-cockpit-pro-v2.jpg'
+import cockpitUltraImage from '../assets/site/moli-cockpit-ultra-v2.jpg'
+import racerCoreImage from '../assets/site/moli-racer-core-v3.jpg'
+import racerSignatureImage from '../assets/site/moli-racer-signature-v3.jpg'
+import racerEliteImage from '../assets/site/moli-racer-elite-v3.jpg'
+import arenaCoreImage from '../assets/site/moli-arena-core-v1.jpg'
+import arenaSignatureImage from '../assets/site/moli-arena-signature-v1.jpg'
+import arenaVenueImage from '../assets/site/moli-arena-venue-v1.jpg'
 import competitiveExperience from '../assets/site/experience-competitive-v2.jpg'
 import immersiveExperience from '../assets/site/experience-immersive-v2.jpg'
 import simulationExperience from '../assets/site/experience-simulation-v3.jpg'
@@ -12,7 +26,6 @@ import streamingExperience from '../assets/site/experience-streaming-v2.jpg'
 import displayGear from '../assets/site/gear-displays-v1.jpg'
 import controlGear from '../assets/site/gear-controls-v1.jpg'
 import audioGear from '../assets/site/gear-audio-v1.jpg'
-import simGear from '../assets/site/gear-sim-v1.jpg'
 import furnitureGear from '../assets/site/gear-furniture-v1.jpg'
 import laptopStart from '../assets/site/start-laptop-v1.jpg'
 import desktopStart from '../assets/site/start-desktop-v1.jpg'
@@ -28,9 +41,6 @@ import controlController from '../assets/catalog/control-controller-v1.jpg'
 import audioHeadset from '../assets/catalog/audio-headset-v1.jpg'
 import audioSpeakers from '../assets/catalog/audio-speakers-v1.jpg'
 import audioMicrophone from '../assets/catalog/audio-microphone-v1.jpg'
-import simWheel from '../assets/catalog/sim-wheel-v1.jpg'
-import simPedals from '../assets/catalog/sim-pedals-v1.jpg'
-import simCockpit from '../assets/catalog/sim-cockpit-v1.jpg'
 import furnitureDesk from '../assets/catalog/furniture-desk-v1.jpg'
 import furnitureChair from '../assets/catalog/furniture-chair-v1.jpg'
 import furnitureLighting from '../assets/catalog/furniture-lighting-v1.jpg'
@@ -73,16 +83,19 @@ import {
 } from '../app/storeNavigation'
 import './HomePage.css'
 
-type HeroMode = 'competitive' | 'immersive' | 'racing'
+type HeroMode = 'brand' | 'cockpit' | 'racer' | 'arena' | 'setups'
+type CockpitModelId = 'cockpit' | 'plus' | 'pro' | 'ultra'
+type RacerModelId = 'core' | 'signature' | 'elite'
+type ArenaModelId = 'core' | 'signature' | 'venue'
 type StartingPoint = 'laptop' | 'desktop' | 'console' | 'fresh'
 type Experience = 'competitive' | 'immersive' | 'racing' | 'streaming'
 type GearTarget = 'displays' | 'controls' | 'audio' | 'sim' | 'furniture'
-type CatalogView = { title: string; allowedCategories: GearTarget[]; source: 'direct' | 'recommendation' }
+type CatalogView = { title: string; allowedCategories: GearTarget[]; source: 'direct' | 'recommendation'; lockedSubtype?: string }
 type CatalogItem = CatalogProduct & { image: string }
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 type CheckoutDraft = { source: CheckoutSource; lines: CartLine[] }
 type CheckoutStep = 'delivery' | 'review' | 'complete'
-type CatalogNavigationData = { catalogView: CatalogView; category: GearTarget | null }
+type CatalogNavigationData = { catalogView: CatalogView; category: GearTarget | null; subtype?: string | null }
 type CheckoutNavigationData = { depth: number }
 
 const deviceRecommendationProfiles: Record<StartingPoint, {
@@ -91,8 +104,8 @@ const deviceRecommendationProfiles: Record<StartingPoint, {
 }> = {
   laptop: { defaultGears: ['displays', 'controls', 'audio'], alwaysInclude: [] },
   desktop: { defaultGears: ['displays', 'controls', 'audio', 'furniture'], alwaysInclude: [] },
-  console: { defaultGears: ['controls', 'displays', 'audio', 'sim'], alwaysInclude: ['controls'] },
-  fresh: { defaultGears: ['displays', 'controls', 'audio', 'sim', 'furniture'], alwaysInclude: [] },
+  console: { defaultGears: ['controls', 'displays', 'audio'], alwaysInclude: ['controls'] },
+  fresh: { defaultGears: ['displays', 'controls', 'audio', 'furniture'], alwaysInclude: [] },
 }
 
 const experienceRecommendationProfiles: Record<Experience, {
@@ -116,10 +129,10 @@ const experienceRecommendationProfiles: Record<Experience, {
     },
   },
   racing: {
-    gears: ['sim', 'displays', 'furniture'],
+    gears: ['displays', 'audio', 'furniture'],
     subtypes: {
-      sim: ['Wheels', 'Pedals', 'Cockpits'],
       displays: ['Gaming monitors', 'Monitor arms'],
+      audio: ['Headsets', 'Speakers'],
       furniture: ['Seating'],
     },
   },
@@ -164,36 +177,264 @@ function productMatchesRecommendation(
 const heroModes: Record<HeroMode, {
   label: string
   descriptor: string
+  summary: string
+  action: string
+  href: string
   note: string
-  image: string
-  alternateImage?: string
+  images: [string, string]
   imagePosition: string
 }> = {
-  competitive: {
-    label: 'Competitive Gaming',
-    descriptor: 'FPS · Esports',
-    note: 'Speed. Precision. Clarity.',
-    image: competitiveHero,
-    alternateImage: competitiveHeroAlternate,
-    imagePosition: 'center 44%',
+  brand: {
+    label: 'JG MOLI',
+    descriptor: 'Complete experiences',
+    summary: 'Complete systems and gaming gear, shaped around how you play.',
+    action: 'Explore JG MOLI',
+    href: '#moli-cockpit',
+    note: 'Complete. Real. Only here.',
+    images: [competitiveHero, competitiveHeroAlternate],
+    imagePosition: 'center 50%',
   },
-  immersive: {
-    label: 'Immersive Gaming',
-    descriptor: 'RPG · Adventure',
-    note: 'Scale. Sound. Atmosphere.',
-    image: immersiveHero,
-    alternateImage: immersiveHeroAlternate,
-    imagePosition: 'center 52%',
+  cockpit: {
+    label: 'MOLI Cockpit',
+    descriptor: 'Personal immersion',
+    summary: 'One seat. One screen. Your own cockpit.',
+    action: 'Explore MOLI Cockpit',
+    href: '#moli-cockpit',
+    note: 'Comfort. Focus. Immersion.',
+    images: [immersiveHero, immersiveHeroAlternate],
+    imagePosition: 'center 50%',
   },
-  racing: {
-    label: 'Sim Racing',
-    descriptor: 'Wheel · Cockpit',
+  racer: {
+    label: 'MOLI Racer',
+    descriptor: 'Motion racing',
+    summary: 'Feel every turn with motion and race-ready control.',
+    action: 'Explore MOLI Racer',
+    href: '#moli-racer',
     note: 'Control. Feedback. Instinct.',
-    image: racingHero,
-    alternateImage: racingHeroAlternate,
-    imagePosition: 'center 42%',
+    images: [racingHero, racingHeroAlternate],
+    imagePosition: 'center 50%',
+  },
+  arena: {
+    label: 'JG MOLI Arena',
+    descriptor: 'Shared play',
+    summary: 'Turn one room into play for everyone.',
+    action: 'Explore JG MOLI Arena',
+    href: '#moli-arena',
+    note: 'Together. Active. Alive.',
+    images: [arenaHero, arenaHeroAlternate],
+    imagePosition: 'center 50%',
+  },
+  setups: {
+    label: 'Gaming Gear',
+    descriptor: 'Upgrade your setup',
+    summary: 'Complete what you already own.',
+    action: 'Shop gaming gear',
+    href: '#shop-by-gear',
+    note: 'See more. Hear more. Play better.',
+    images: [gearHero, gearHeroAlternate],
+    imagePosition: 'center 50%',
   },
 }
+
+const cockpitModels: Array<{
+  id: CockpitModelId
+  index: string
+  name: string
+  tier: string
+  headline: string
+  difference: string
+  idealFor: string
+  structure: string
+  visualSystem: string
+  priceCents: number
+  image: string
+  imageAlt: string
+}> = [
+  {
+    id: 'cockpit',
+    index: '01',
+    name: 'MOLI Cockpit',
+    tier: 'Essential',
+    headline: 'A complete cockpit for your first home racing setup.',
+    difference: 'Compact frame · Single curved display',
+    idealFor: 'Everyday personal setups',
+    structure: 'Compact open frame',
+    visualSystem: 'Single curved display',
+    priceCents: 1199900,
+    image: cockpitImage,
+    imageAlt: 'MOLI Cockpit with a compact frame and single curved display in a home gaming room.',
+  },
+  {
+    id: 'plus',
+    index: '02',
+    name: 'MOLI Cockpit Plus',
+    tier: 'Enhanced',
+    headline: 'More room and a wider view for longer sessions.',
+    difference: 'Enclosed shell · Wider curved display',
+    idealFor: 'Longer immersive sessions',
+    structure: 'Enveloping shell',
+    visualSystem: 'Wider curved display',
+    priceCents: 2499900,
+    image: cockpitPlusImage,
+    imageAlt: 'MOLI Cockpit Plus with a partial carbon shell and wide curved display in a home gaming room.',
+  },
+  {
+    id: 'pro',
+    index: '03',
+    name: 'MOLI Cockpit Pro',
+    tier: 'Core model',
+    headline: 'See more of the race with a full wraparound view.',
+    difference: 'Performance cockpit · Triple display',
+    idealFor: 'Committed enthusiasts',
+    structure: 'Performance cockpit',
+    visualSystem: 'Wraparound triple display',
+    priceCents: 2999900,
+    image: cockpitProImage,
+    imageAlt: 'MOLI Cockpit Pro with formula controls and three displays in a home gaming room.',
+  },
+  {
+    id: 'ultra',
+    index: '04',
+    name: 'MOLI Cockpit Ultra',
+    tier: 'Flagship',
+    headline: 'Add motion for the most immersive home setup.',
+    difference: 'Full motion · Triple display',
+    idealFor: 'The complete home experience',
+    structure: 'Adaptive flagship platform',
+    visualSystem: 'Large triple-display environment',
+    priceCents: 3999900,
+    image: cockpitUltraImage,
+    imageAlt: 'MOLI Cockpit Ultra with a full-motion platform and three large displays in a home gaming room.',
+  },
+]
+
+const racerModels: Array<{
+  id: RacerModelId
+  index: string
+  name: string
+  tier: string
+  headline: string
+  difference: string
+  idealFor: string
+  motionSystem: string
+  visualSystem: string
+  controls: string
+  priceCents: number
+  image: string
+  imageAlt: string
+}> = [
+  {
+    id: 'core',
+    index: '01',
+    name: 'MOLI Racer Core',
+    tier: 'Entry',
+    headline: 'Start with a complete motion racing setup.',
+    difference: '32-inch display · Direct drive · 4DOF motion',
+    idealFor: 'A first complete motion setup',
+    motionSystem: 'Compact calibrated 4DOF platform',
+    visualSystem: '32-inch single display',
+    controls: 'Entry direct-drive wheel and pedals',
+    priceCents: 2690000,
+    image: racerCoreImage,
+    imageAlt: 'MOLI Racer Core motion simulator in a dedicated residential sim-racing room.',
+  },
+  {
+    id: 'signature',
+    index: '02',
+    name: 'MOLI Racer Signature',
+    tier: 'Core model',
+    headline: 'A wider view and stronger controls for serious racing.',
+    difference: '49-inch QLED · R5 direct drive · 4DOF motion',
+    idealFor: 'Committed sim racers',
+    motionSystem: 'Full calibrated 4DOF platform',
+    visualSystem: '49-inch QLED 5120×1440 165Hz',
+    controls: 'R5 base, ES wheel and SRP pedals',
+    priceCents: 3490000,
+    image: racerSignatureImage,
+    imageAlt: 'MOLI Racer Signature with a 49-inch ultrawide display in a dedicated residential sim-racing room.',
+  },
+  {
+    id: 'elite',
+    index: '03',
+    name: 'MOLI Racer Elite',
+    tier: 'Flagship',
+    headline: 'Our largest display and most advanced controls.',
+    difference: '57-inch ultrawide · Hydraulic pedals · 4DOF motion',
+    idealFor: 'The highest-performance home racing experience',
+    motionSystem: 'Reinforced flagship 4DOF platform',
+    visualSystem: '57-inch ultrawide curved display',
+    controls: 'High-end DD, hydraulic pedals, shifter and handbrake',
+    priceCents: 4490000,
+    image: racerEliteImage,
+    imageAlt: 'MOLI Racer Elite flagship simulator with a 57-inch ultrawide display in a dedicated residential sim-racing room.',
+  },
+]
+
+const arenaModels: Array<{
+  id: ArenaModelId
+  index: string
+  name: string
+  tier: string
+  headline: string
+  difference: string
+  idealFor: string
+  players: string
+  content: string
+  installation: string
+  support: string
+  priceCents: number
+  image: string
+  imageAlt: string
+}> = [
+  {
+    id: 'core',
+    index: '01',
+    name: 'JG MOLI Arena Core',
+    tier: 'Home',
+    headline: 'Two players. Sixty games. Ready for home.',
+    difference: '2 players · 60 games',
+    idealFor: 'Families creating their first shared play space',
+    players: 'Two infrared light controllers',
+    content: '60 perpetually licensed offline games',
+    installation: 'Standard home installation and calibration',
+    support: 'Two-year on-site cover',
+    priceCents: 999900,
+    image: arenaCoreImage,
+    imageAlt: 'A family enjoying JG MOLI Arena Core together in a warm, realistic Australian living room.',
+  },
+  {
+    id: 'signature',
+    index: '02',
+    name: 'JG MOLI Arena Signature',
+    tier: 'Core model',
+    headline: 'Bring four players into the same game.',
+    difference: '4 players · 60 games · Blackout upgrade',
+    idealFor: 'Families who want everyone playing together',
+    players: 'Four controllers, including two custom infrared units',
+    content: '60 games, first-year content updates and AI Studio',
+    installation: 'Home installation with basic blackout works',
+    support: 'Three-year on-site cover',
+    priceCents: 1399900,
+    image: arenaSignatureImage,
+    imageAlt: 'A family of four playing JG MOLI Arena Signature together in a darkened home games room.',
+  },
+  {
+    id: 'venue',
+    index: '03',
+    name: 'JG MOLI Arena Venue',
+    tier: 'Commercial',
+    headline: 'Run shared play for groups and guests.',
+    difference: '6 players · QR and timer controls',
+    idealFor: 'Entertainment, education and community venues',
+    players: 'Six infrared light controllers',
+    content: '60 offline commercial titles',
+    installation: 'Commercial installation with QR or timer module',
+    support: 'Operations dashboard and three-year on-site cover',
+    priceCents: 1799900,
+    image: arenaVenueImage,
+    imageAlt: 'Six people using JG MOLI Arena Venue in a compact, professionally installed activity room.',
+  },
+]
 
 const startingPoints: Array<{
   id: StartingPoint
@@ -223,7 +464,7 @@ const startingPoints: Array<{
     id: 'console',
     index: '03',
     label: 'PlayStation / Xbox',
-    products: ['4K displays', 'Controllers', 'Headsets', 'Racing gear'],
+    products: ['4K displays', 'Controllers', 'Headsets', 'Room audio'],
     image: consoleStart,
     message: 'Bring display, control and sound together around the console you already play.',
   },
@@ -231,7 +472,7 @@ const startingPoints: Array<{
     id: 'fresh',
     index: '04',
     label: 'Starting Fresh',
-    products: ['Complete setups', 'Platform', 'Display', 'Desk & seating'],
+    products: ['Displays', 'Controls', 'Audio', 'Desk & seating'],
     image: freshStart,
     message: 'Begin with the essentials, then shape every part around the way you want to play.',
   },
@@ -248,9 +489,16 @@ const gearShortcuts: Array<{
   { id: 'displays', label: 'Displays', products: ['Gaming monitors', 'Monitor arms', 'Cables & adapters'], image: displayGear, headline: 'See the action clearly.', message: 'High-refresh motion and a wider view make every decision easier to read.' },
   { id: 'controls', label: 'Controls', products: ['Keyboards', 'Mice', 'Controllers'], image: controlGear, headline: 'Make every input intentional.', message: 'Precise, low-latency control keeps the action connected to your next move.' },
   { id: 'audio', label: 'Audio', products: ['Headsets', 'Speakers', 'Microphones'], image: audioGear, headline: 'Hear where the world is.', message: 'Directional detail turns sound into awareness, atmosphere and connection.' },
-  { id: 'sim', label: 'Sim gear', products: ['Wheels', 'Pedals', 'Cockpits'], image: simGear, headline: 'Feel the road answer back.', message: 'Wheel, pedals and a stable driving position turn movement into feedback.' },
   { id: 'furniture', label: 'Furniture', products: ['Desks', 'Seating', 'Lighting'], image: furnitureGear, headline: 'Stay in the world longer.', message: 'Support, positioning and considered light keep comfort out of the way.' },
 ]
+
+const catalogCategoryLabels: Record<GearTarget, string> = {
+  displays: 'Displays',
+  controls: 'Controls',
+  audio: 'Audio',
+  sim: 'Complete systems',
+  furniture: 'Furniture',
+}
 
 const catalogImages: Record<string, string> = {
   'display-high-refresh': displayHighRefresh,
@@ -263,9 +511,16 @@ const catalogImages: Record<string, string> = {
   'audio-headset': audioHeadset,
   'audio-speakers': audioSpeakers,
   'audio-microphone': audioMicrophone,
-  'sim-wheel': simWheel,
-  'sim-pedals': simPedals,
-  'sim-cockpit': simCockpit,
+  'moli-cockpit': cockpitImage,
+  'moli-cockpit-plus': cockpitPlusImage,
+  'moli-cockpit-pro': cockpitProImage,
+  'moli-cockpit-ultra': cockpitUltraImage,
+  'moli-racer-core': racerCoreImage,
+  'moli-racer-signature': racerSignatureImage,
+  'moli-racer-elite': racerEliteImage,
+  'moli-arena-core': arenaCoreImage,
+  'moli-arena-signature': arenaSignatureImage,
+  'moli-arena-venue': arenaVenueImage,
   'furniture-desk': furnitureDesk,
   'furniture-seat': furnitureChair,
   'furniture-light': furnitureLighting,
@@ -302,9 +557,9 @@ const experiences = [
     title: 'Sim Racing',
     caption: 'Feel the road through every input and response.',
     products: [
-      { label: 'Wheel & base', benefit: 'Stronger feedback. More precise steering.', gear: 'sim' as const, focus: ['50%', '49%'] },
-      { label: 'Pedals & shifter', benefit: 'More consistent braking and shifting.', gear: 'sim' as const, focus: ['54%', '62%'] },
-      { label: 'Cockpit frame', benefit: 'Stable posture. Every control aligned.', gear: 'sim' as const, focus: ['38%', '70%'] },
+      { label: 'Racing display', benefit: 'A clearer view of every braking point.', gear: 'displays' as const, focus: ['50%', '40%'] },
+      { label: 'Focused audio', benefit: 'Hear the engine, tyres and competitors around you.', gear: 'audio' as const, focus: ['64%', '42%'] },
+      { label: 'Seat & lighting', benefit: 'Stay comfortable and focused through longer races.', gear: 'furniture' as const, focus: ['38%', '70%'] },
     ],
     image: simulationExperience,
   },
@@ -339,8 +594,45 @@ function readGearTarget(value: string | null): GearTarget | null {
   return gearShortcuts.some((gear) => gear.id === value) ? value as GearTarget : null
 }
 
+function restoreWindowScroll(top: number) {
+  const root = document.documentElement
+  const previousScrollBehavior = root.style.scrollBehavior
+  root.style.scrollBehavior = 'auto'
+  window.scrollTo({ top, behavior: 'auto' })
+  root.style.scrollBehavior = previousScrollBehavior
+}
+
+const homeSectionIds = [
+  'top',
+  'moli-cockpit',
+  'moli-racer',
+  'moli-arena',
+  'shop-by-gear',
+  'how-it-works',
+  'starting-point',
+  'experiences',
+  'support',
+]
+
+function syncHomeHashToScroll(top: number) {
+  const nearestSection = homeSectionIds.reduce<{ id: string; distance: number } | null>((nearest, id) => {
+    const section = document.getElementById(id)
+    if (!section) return nearest
+    const distance = Math.abs(section.getBoundingClientRect().top + window.scrollY - top)
+    return !nearest || distance < nearest.distance ? { id, distance } : nearest
+  }, null)
+  if (!nearestSection || window.location.hash === `#${nearestSection.id}`) return
+  window.history.replaceState(window.history.state, '', `#${nearestSection.id}`)
+}
+
 export function HomePage() {
-  const [mode, setMode] = useState<HeroMode>('competitive')
+  const [mode, setMode] = useState<HeroMode>('brand')
+  const [activeCockpitModel, setActiveCockpitModel] = useState<CockpitModelId>('cockpit')
+  const [isCockpitCompareOpen, setIsCockpitCompareOpen] = useState(false)
+  const [activeRacerModel, setActiveRacerModel] = useState<RacerModelId>('core')
+  const [isRacerCompareOpen, setIsRacerCompareOpen] = useState(false)
+  const [activeArenaModel, setActiveArenaModel] = useState<ArenaModelId>('core')
+  const [isArenaCompareOpen, setIsArenaCompareOpen] = useState(false)
   const [startingPoint, setStartingPoint] = useState<StartingPoint | null>(null)
   const [experience, setExperience] = useState<Experience | null>(null)
   const [experienceProduct, setExperienceProduct] = useState<string | null>(null)
@@ -354,8 +646,10 @@ export function HomePage() {
   const [isHeroMotionAllowed, setIsHeroMotionAllowed] = useState(false)
   const [isHeroVisible, setIsHeroVisible] = useState(true)
   const [isDocumentVisible, setIsDocumentVisible] = useState(true)
-  const [isHeroMotionEnabled, setIsHeroMotionEnabled] = useState(true)
-  const [isHeroAlternateVisible, setIsHeroAlternateVisible] = useState(false)
+  const [visibleShowcase, setVisibleShowcase] = useState<'cockpit' | 'racer' | 'arena' | null>(null)
+  const [pausedShowcase, setPausedShowcase] = useState<'cockpit' | 'racer' | 'arena' | null>(null)
+  const [heroFrame, setHeroFrame] = useState<0 | 1>(0)
+  const [previousHero, setPreviousHero] = useState<{ mode: HeroMode; frame: 0 | 1 } | null>(null)
   const [isAccountOpen, setIsAccountOpen] = useState(Boolean(initialVerificationToken || initialPasswordResetToken))
   const [authMode, setAuthMode] = useState<AuthMode>(initialPasswordResetToken ? 'reset' : 'login')
   const [authToken, setAuthToken] = useState<string | null>(loadToken)
@@ -389,11 +683,17 @@ export function HomePage() {
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState(() => crypto.randomUUID())
   const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState(() => crypto.randomUUID())
   const heroRef = useRef<HTMLElement>(null)
+  const heroTransitionTimerRef = useRef<number | null>(null)
+  const cockpitModelListRef = useRef<HTMLDivElement>(null)
+  const racerModelListRef = useRef<HTMLDivElement>(null)
+  const arenaModelListRef = useRef<HTMLDivElement>(null)
   const startingPointRef = useRef<HTMLElement>(null)
   const experiencesRef = useRef<HTMLElement>(null)
   const checkoutRef = useRef<HTMLElement>(null)
   const checkoutSubmittingRouteRef = useRef<StoreRoute | null>(null)
   const pendingCheckoutCompletionRef = useRef(false)
+  const managedViewReturnScrollRef = useRef<number | null>(null)
+  const showcaseResumeTimerRef = useRef<number | null>(null)
   const selectedStart = startingPoints.find((point) => point.id === startingPoint)
   const displayedStart = selectedStart ?? startingPoints[0]
   const activeExperience = experience ?? 'competitive'
@@ -401,8 +701,21 @@ export function HomePage() {
   const selectedExperienceProduct = selectedExperience.products.find((product) => product.label === experienceProduct)
     ?? selectedExperience.products[0]
   const selectedGear = gearShortcuts.find((gear) => gear.id === gearTarget)!
+  const selectedCockpitModel = cockpitModels.find((model) => model.id === activeCockpitModel)!
+  const selectedRacerModel = racerModels.find((model) => model.id === activeRacerModel)!
+  const selectedArenaModel = arenaModels.find((model) => model.id === activeArenaModel)!
   const showSetupTray = hasGuidedInteraction && isGuidedPathVisible
+  const isBlockingViewOpen = Boolean(catalogView)
+    || isCockpitCompareOpen
+    || isRacerCompareOpen
+    || isArenaCompareOpen
+    || isCartOpen
+    || (isAccountOpen && !authUser)
+    || isOrdersOpen
+    || isCheckoutOpen
+    || isInvoiceOpen
   const allGearIds = gearShortcuts.map((gear) => gear.id)
+  const allProductIds: GearTarget[] = ['sim', ...allGearIds]
   const deviceProfile = startingPoint ? deviceRecommendationProfiles[startingPoint] : null
   const experienceProfile = experience ? experienceRecommendationProfiles[experience] : null
   const recommendationGearIds = experienceProfile
@@ -415,7 +728,7 @@ export function HomePage() {
     ? catalogItems.filter((item) => (
       catalogView.allowedCategories.includes(item.category)
       && (!productFocus || item.category === productFocus)
-      && (!catalogSubtype || item.subtype === catalogSubtype)
+      && (!(catalogView.lockedSubtype ?? catalogSubtype) || item.subtype === (catalogView.lockedSubtype ?? catalogSubtype))
       && (catalogView.source !== 'recommendation'
         || productMatchesRecommendation(item, startingPoint, experience, recommendationGearIds))
     )).sort((left, right) => catalogView.source === 'recommendation'
@@ -423,12 +736,16 @@ export function HomePage() {
       : 0)
     : []
   const catalogSubtypes = productFocus
-    ? catalogView?.source === 'recommendation'
+    ? catalogView?.lockedSubtype
+      ? []
+      : catalogView?.source === 'recommendation'
       ? [...new Set(catalogItems
         .filter((item) => item.category === productFocus
           && productMatchesRecommendation(item, startingPoint, experience, recommendationGearIds))
         .map((item) => item.subtype))]
-      : gearShortcuts.find((gear) => gear.id === productFocus)?.products ?? []
+      : [...new Set(catalogItems
+        .filter((item) => item.category === productFocus)
+        .map((item) => item.subtype))]
     : []
   const cartItems = cartLines.flatMap((line) => {
     const product = catalogItems.find((item) => item.variantId === line.variantId)
@@ -439,8 +756,23 @@ export function HomePage() {
   const selectedCartSubtotalCents = selectedCartItems.reduce((total, line) => total + line.product.priceCents * line.quantity, 0)
 
   useEffect(() => {
-    const applyBrowserRoute = () => {
+    const applyBrowserRoute = (navigationSource: 'initial' | 'history') => {
       const route = readStoreRoute()
+      const restoreManagedViewReturnScroll = () => {
+        const returnScrollTop = managedViewReturnScrollRef.current
+        if (returnScrollTop === null) return false
+        managedViewReturnScrollRef.current = null
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            restoreWindowScroll(returnScrollTop)
+            if (route === 'home') syncHomeHashToScroll(returnScrollTop)
+          })
+        })
+        return true
+      }
+      setIsCockpitCompareOpen(route === 'cockpit-compare')
+      setIsRacerCompareOpen(route === 'racer-compare')
+      setIsArenaCompareOpen(route === 'arena-compare')
 
       if (route !== 'account') {
         setPendingCartItem(null)
@@ -483,10 +815,16 @@ export function HomePage() {
         setIsCheckoutOpen(false)
         setIsOrdersOpen(false)
         setIsInvoiceOpen(false)
-        window.requestAnimationFrame(() => {
-          const sectionId = nextExperience ? 'experiences' : nextStartingPoint ? 'starting-point' : 'how-it-works'
-          document.getElementById(sectionId)?.scrollIntoView({ behavior: 'auto', block: 'start' })
-        })
+        if (!restoreManagedViewReturnScroll() && navigationSource === 'history') {
+          window.requestAnimationFrame(() => {
+            const sectionId = nextExperience ? 'experiences' : nextStartingPoint ? 'starting-point' : 'how-it-works'
+            document.getElementById(sectionId)?.scrollIntoView({ behavior: 'auto', block: 'start' })
+          })
+        } else if (navigationSource === 'initial') {
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => restoreWindowScroll(0))
+          })
+        }
         return
       }
 
@@ -499,7 +837,37 @@ export function HomePage() {
         }
         setCatalogView(navigation?.data?.catalogView ?? fallbackView)
         setProductFocus(navigation?.data?.category ?? null)
-        setCatalogSubtype(null)
+        setCatalogSubtype(navigation?.data?.subtype ?? null)
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsCheckoutOpen(false)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route === 'cockpit-compare') {
+        setCatalogView(null)
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsCheckoutOpen(false)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route === 'racer-compare') {
+        setCatalogView(null)
+        setIsCartOpen(false)
+        setIsAccountOpen(false)
+        setIsCheckoutOpen(false)
+        setIsOrdersOpen(false)
+        setIsInvoiceOpen(false)
+        return
+      }
+
+      if (route === 'arena-compare') {
+        setCatalogView(null)
         setIsCartOpen(false)
         setIsAccountOpen(false)
         setIsCheckoutOpen(false)
@@ -570,12 +938,53 @@ export function HomePage() {
       setIsCheckoutOpen(false)
       setIsOrdersOpen(false)
       setIsInvoiceOpen(false)
+      const navigationEntry = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+      if (navigationSource === 'initial' && navigationEntry?.type === 'reload') {
+        replaceWithStoreHome()
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => restoreWindowScroll(0))
+        })
+        return
+      }
+      if (!restoreManagedViewReturnScroll()) {
+        window.requestAnimationFrame(() => {
+          const hash = window.location.hash
+          const sectionId = hash && !hash.startsWith('#/') ? hash.slice(1) : 'top'
+          document.getElementById(sectionId || 'top')?.scrollIntoView({ behavior: 'auto', block: 'start' })
+        })
+      }
     }
 
-    applyBrowserRoute()
-    window.addEventListener('popstate', applyBrowserRoute)
-    return () => window.removeEventListener('popstate', applyBrowserRoute)
+    const handleHistoryNavigation = () => applyBrowserRoute('history')
+    applyBrowserRoute('initial')
+    window.addEventListener('popstate', handleHistoryNavigation)
+    return () => window.removeEventListener('popstate', handleHistoryNavigation)
   }, [])
+
+  useEffect(() => {
+    if (!isBlockingViewOpen) return
+    const lockedScrollTop = window.scrollY
+    const previousBodyStyles = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    }
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${lockedScrollTop}px`
+    document.body.style.width = '100%'
+
+    return () => {
+      document.body.style.overflow = previousBodyStyles.overflow
+      document.body.style.position = previousBodyStyles.position
+      document.body.style.top = previousBodyStyles.top
+      document.body.style.width = previousBodyStyles.width
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => restoreWindowScroll(lockedScrollTop))
+      })
+    }
+  }, [isBlockingViewOpen])
 
   useEffect(() => {
     if (!isCheckoutOpen) return
@@ -676,16 +1085,15 @@ export function HomePage() {
 
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const compactViewport = window.matchMedia('(max-width: 700px)')
-    const updateMotionPreference = () => setIsHeroMotionAllowed(!reducedMotion.matches && !compactViewport.matches)
+    const updateMotionPreference = () => setIsHeroMotionAllowed(!reducedMotion.matches)
 
     updateMotionPreference()
     reducedMotion.addEventListener('change', updateMotionPreference)
-    compactViewport.addEventListener('change', updateMotionPreference)
-    return () => {
-      reducedMotion.removeEventListener('change', updateMotionPreference)
-      compactViewport.removeEventListener('change', updateMotionPreference)
-    }
+    return () => reducedMotion.removeEventListener('change', updateMotionPreference)
+  }, [])
+
+  useEffect(() => () => {
+    if (showcaseResumeTimerRef.current !== null) window.clearTimeout(showcaseResumeTimerRef.current)
   }, [])
 
   useEffect(() => {
@@ -696,31 +1104,87 @@ export function HomePage() {
   }, [])
 
   useEffect(() => {
+    const showcases = [
+      ['cockpit', cockpitModelListRef.current],
+      ['racer', racerModelListRef.current],
+      ['arena', arenaModelListRef.current],
+    ] as const
+    const visibleRatios = new Map<Element, number>()
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => visibleRatios.set(entry.target, entry.intersectionRatio))
+      const mostVisible = showcases
+        .filter((entry): entry is readonly ['cockpit' | 'racer' | 'arena', HTMLDivElement] => Boolean(entry[1]))
+        .map(([id, element]) => ({ id, ratio: visibleRatios.get(element) ?? 0 }))
+        .sort((left, right) => right.ratio - left.ratio)[0]
+      setVisibleShowcase(mostVisible && mostVisible.ratio >= 0.55 ? mostVisible.id : null)
+    }, { threshold: [0, 0.55, 0.75] })
+
+    showcases.forEach(([, element]) => {
+      if (element) observer.observe(element)
+    })
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!visibleShowcase || pausedShowcase === visibleShowcase || !isHeroMotionAllowed || !isDocumentVisible) return
+    if (window.matchMedia('(max-width: 1000px)').matches) return
+
+    const advanceModel = window.setTimeout(() => {
+      if (visibleShowcase === 'cockpit') {
+        const currentIndex = cockpitModels.findIndex((model) => model.id === activeCockpitModel)
+        setActiveCockpitModel(cockpitModels[(currentIndex + 1) % cockpitModels.length].id)
+      } else if (visibleShowcase === 'racer') {
+        const currentIndex = racerModels.findIndex((model) => model.id === activeRacerModel)
+        setActiveRacerModel(racerModels[(currentIndex + 1) % racerModels.length].id)
+      } else {
+        const currentIndex = arenaModels.findIndex((model) => model.id === activeArenaModel)
+        setActiveArenaModel(arenaModels[(currentIndex + 1) % arenaModels.length].id)
+      }
+    }, 4000)
+
+    return () => window.clearTimeout(advanceModel)
+  }, [activeArenaModel, activeCockpitModel, activeRacerModel, isDocumentVisible, isHeroMotionAllowed, pausedShowcase, visibleShowcase])
+
+  useEffect(() => {
     const updateDocumentVisibility = () => setIsDocumentVisible(document.visibilityState === 'visible')
     updateDocumentVisibility()
     document.addEventListener('visibilitychange', updateDocumentVisibility)
     return () => document.removeEventListener('visibilitychange', updateDocumentVisibility)
   }, [])
 
+  useEffect(() => () => {
+    if (heroTransitionTimerRef.current !== null) window.clearTimeout(heroTransitionTimerRef.current)
+  }, [])
+
+  const transitionHero = useCallback((nextMode: HeroMode, nextFrame: 0 | 1) => {
+    if (nextMode === mode && nextFrame === heroFrame) return
+    if (heroTransitionTimerRef.current !== null) window.clearTimeout(heroTransitionTimerRef.current)
+
+    setPreviousHero({ mode, frame: heroFrame })
+    setMode(nextMode)
+    setHeroFrame(nextFrame)
+    heroTransitionTimerRef.current = window.setTimeout(() => {
+      setPreviousHero(null)
+      heroTransitionTimerRef.current = null
+    }, 520)
+  }, [heroFrame, mode])
+
   useEffect(() => {
-    const shouldSequence = Boolean(heroModes[mode].alternateImage)
-      && isHeroMotionAllowed
+    const shouldSequence = isHeroMotionAllowed
       && isHeroVisible
       && isDocumentVisible
-      && isHeroMotionEnabled
     if (!shouldSequence) return
 
-    const revealAlternate = window.setTimeout(() => setIsHeroAlternateVisible(true), 2800)
-    const advanceMode = window.setTimeout(() => {
+    const advanceHero = window.setTimeout(() => {
+      if (heroFrame === 0) {
+        transitionHero(mode, 1)
+        return
+      }
       const modes = Object.keys(heroModes) as HeroMode[]
-      setIsHeroAlternateVisible(false)
-      setMode(modes[(modes.indexOf(mode) + 1) % modes.length])
-    }, 5600)
-    return () => {
-      window.clearTimeout(revealAlternate)
-      window.clearTimeout(advanceMode)
-    }
-  }, [mode, isHeroMotionAllowed, isHeroVisible, isDocumentVisible, isHeroMotionEnabled])
+      transitionHero(modes[(modes.indexOf(mode) + 1) % modes.length], 0)
+    }, 4000)
+    return () => window.clearTimeout(advanceHero)
+  }, [mode, heroFrame, isHeroMotionAllowed, isHeroVisible, isDocumentVisible, transitionHero])
 
   useEffect(() => {
     const sections = [startingPointRef.current, experiencesRef.current].filter((section): section is HTMLElement => Boolean(section))
@@ -745,16 +1209,46 @@ export function HomePage() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const openHomeSection = (id: string) => {
+    setHasGuidedInteraction(false)
+    if (readStoreRoute() !== 'home') replaceWithStoreHome()
+    window.requestAnimationFrame(() => scrollToSection(id))
+  }
+
+  const pauseShowcaseAfterSelection = (showcase: 'cockpit' | 'racer' | 'arena') => {
+    if (showcaseResumeTimerRef.current !== null) window.clearTimeout(showcaseResumeTimerRef.current)
+    setPausedShowcase(showcase)
+    showcaseResumeTimerRef.current = window.setTimeout(() => {
+      setPausedShowcase((current) => current === showcase ? null : current)
+      showcaseResumeTimerRef.current = null
+    }, 10_000)
+  }
+
+  const selectCockpitModel = (modelId: CockpitModelId) => {
+    setActiveCockpitModel(modelId)
+    pauseShowcaseAfterSelection('cockpit')
+  }
+
+  const selectRacerModel = (modelId: RacerModelId) => {
+    setActiveRacerModel(modelId)
+    pauseShowcaseAfterSelection('racer')
+  }
+
+  const selectArenaModel = (modelId: ArenaModelId) => {
+    setActiveArenaModel(modelId)
+    pauseShowcaseAfterSelection('arena')
+  }
+
   const selectHeroMode = (nextMode: HeroMode) => {
     if (nextMode === mode) {
-      setIsHeroMotionEnabled((enabled) => !enabled)
+      transitionHero(nextMode, 0)
       return
     }
 
-    setIsHeroMotionEnabled(true)
-    setIsHeroAlternateVisible(false)
-    setMode(nextMode)
+    transitionHero(nextMode, 0)
   }
+
+  const showNextHeroFrame = () => transitionHero(mode, heroFrame === 0 ? 1 : 0)
 
   const selectStartingPoint = (point: (typeof startingPoints)[number]) => {
     setStartingPoint(point.id)
@@ -811,20 +1305,101 @@ export function HomePage() {
     fallback()
   }
 
-  const openCatalog = (view: CatalogView, category: GearTarget | null = null) => {
+  const rememberManagedViewReturnScroll = () => {
+    if (managedViewReturnScrollRef.current === null) {
+      managedViewReturnScrollRef.current = window.scrollY
+      if (readStoreRoute() === 'home') syncHomeHashToScroll(window.scrollY)
+    }
+  }
+
+  const openCatalog = (view: CatalogView, category: GearTarget | null = null, subtype: string | null = null) => {
+    rememberManagedViewReturnScroll()
+    setIsCockpitCompareOpen(false)
+    setIsRacerCompareOpen(false)
+    setIsArenaCompareOpen(false)
     setCatalogView(view)
     setProductFocus(category)
-    setCatalogSubtype(null)
+    setCatalogSubtype(subtype)
     setIsCategoryMenuOpen(false)
     setIsCartOpen(false)
     setIsAccountOpen(false)
     setIsCheckoutOpen(false)
     setIsOrdersOpen(false)
     setIsInvoiceOpen(false)
-    pushStoreRoute<CatalogNavigationData>('shop', { catalogView: view, category })
+    pushStoreRoute<CatalogNavigationData>('shop', { catalogView: view, category, subtype })
   }
 
+  const openCockpitCollection = () => openCatalog({
+    title: 'MOLI Cockpit collection',
+    allowedCategories: ['sim'],
+    source: 'direct',
+    lockedSubtype: 'Complete cockpits',
+  }, 'sim')
+
+  const openCockpitComparison = () => {
+    rememberManagedViewReturnScroll()
+    setIsCockpitCompareOpen(true)
+    setIsRacerCompareOpen(false)
+    setIsArenaCompareOpen(false)
+    setCatalogView(null)
+    setIsCartOpen(false)
+    setIsAccountOpen(false)
+    setIsCheckoutOpen(false)
+    setIsOrdersOpen(false)
+    setIsInvoiceOpen(false)
+    pushStoreRoute('cockpit-compare')
+  }
+
+  const closeCockpitComparison = () => leaveManagedView(() => setIsCockpitCompareOpen(false))
+
+  const openRacerCollection = () => openCatalog({
+    title: 'MOLI Racer collection',
+    allowedCategories: ['sim'],
+    source: 'direct',
+    lockedSubtype: 'Complete racers',
+  }, 'sim')
+
+  const openRacerComparison = () => {
+    rememberManagedViewReturnScroll()
+    setIsRacerCompareOpen(true)
+    setIsCockpitCompareOpen(false)
+    setIsArenaCompareOpen(false)
+    setCatalogView(null)
+    setIsCartOpen(false)
+    setIsAccountOpen(false)
+    setIsCheckoutOpen(false)
+    setIsOrdersOpen(false)
+    setIsInvoiceOpen(false)
+    pushStoreRoute('racer-compare')
+  }
+
+  const closeRacerComparison = () => leaveManagedView(() => setIsRacerCompareOpen(false))
+
+  const openArenaCollection = () => openCatalog({
+    title: 'JG MOLI Arena collection',
+    allowedCategories: ['sim'],
+    source: 'direct',
+    lockedSubtype: 'Interactive arenas',
+  }, 'sim')
+
+  const openArenaComparison = () => {
+    rememberManagedViewReturnScroll()
+    setIsArenaCompareOpen(true)
+    setIsCockpitCompareOpen(false)
+    setIsRacerCompareOpen(false)
+    setCatalogView(null)
+    setIsCartOpen(false)
+    setIsAccountOpen(false)
+    setIsCheckoutOpen(false)
+    setIsOrdersOpen(false)
+    setIsInvoiceOpen(false)
+    pushStoreRoute('arena-compare')
+  }
+
+  const closeArenaComparison = () => leaveManagedView(() => setIsArenaCompareOpen(false))
+
   const openCart = (navigation: 'push' | 'replace' = 'push') => {
+    rememberManagedViewReturnScroll()
     setIsCartOpen(true)
     setIsAccountOpen(false)
     setIsCheckoutOpen(false)
@@ -843,6 +1418,7 @@ export function HomePage() {
       setIsAccountOpen((open) => !open)
       return
     }
+    rememberManagedViewReturnScroll()
     setIsAccountOpen(true)
     setIsCartOpen(false)
     setIsCheckoutOpen(false)
@@ -858,6 +1434,7 @@ export function HomePage() {
   }
 
   const requireAccount = (message: string) => {
+    rememberManagedViewReturnScroll()
     setAuthError(message)
     setAuthNotice('')
     setIsAccountOpen(true)
@@ -950,6 +1527,7 @@ export function HomePage() {
 
   const openOrders = () => {
     if (!authToken) return
+    rememberManagedViewReturnScroll()
     setIsAccountOpen(false)
     setIsOrdersOpen(true)
     setOrdersError('')
@@ -1026,6 +1604,7 @@ export function HomePage() {
   }
 
   const openCheckout = (draft: CheckoutDraft, navigation: 'push' | 'replace' = 'push') => {
+    rememberManagedViewReturnScroll()
     setCheckoutDraft(draft)
     setIsCheckoutOpen(true)
     setCheckoutStep('delivery')
@@ -1157,6 +1736,7 @@ export function HomePage() {
 
   const openInvoice = () => {
     if (!checkoutInvoice) return
+    rememberManagedViewReturnScroll()
     setIsInvoiceOpen(true)
     pushStoreRoute('invoice')
   }
@@ -1170,6 +1750,10 @@ export function HomePage() {
 
   const formatMoney = (cents: number, currency = 'AUD') => new Intl.NumberFormat('en-AU', {
     style: 'currency', currency,
+  }).format(cents / 100)
+
+  const formatWholeMoney = (cents: number) => new Intl.NumberFormat('en-AU', {
+    style: 'currency', currency: 'AUD', maximumFractionDigits: 0,
   }).format(cents / 100)
 
   const formatPrice = (item: CatalogItem) => new Intl.NumberFormat('en-AU', {
@@ -1186,10 +1770,15 @@ export function HomePage() {
         </a>
 
         <nav className="main-nav" aria-label="Primary navigation">
-          <button className="nav-shop" type="button" onClick={() => openCatalog({ title: 'All gaming gear', allowedCategories: allGearIds, source: 'direct' })}>
-            Shop all gear <span aria-hidden="true">→</span>
+          <div className="nav-sections">
+            <a href="#moli-cockpit">Cockpit</a>
+            <a href="#moli-racer">Racer</a>
+            <a href="#moli-arena">Arena</a>
+            <a className="nav-gear-link" href="#shop-by-gear">Gear</a>
+          </div>
+          <button className="nav-shop" type="button" onClick={() => openCatalog({ title: 'All products', allowedCategories: allProductIds, source: 'direct' })} aria-label="Shop all products">
+            Shop all <span aria-hidden="true">→</span>
           </button>
-          <a className="nav-action" href="#/recommendation" onClick={(event) => { event.preventDefault(); openRecommendation() }}>Get my recommendation <span aria-hidden="true">→</span></a>
           <button className="nav-cart" type="button" onClick={() => openCart()} aria-label={`Open cart with ${cartCount} items`}>
             <span className="nav-cart-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
@@ -1202,7 +1791,6 @@ export function HomePage() {
           </button>
           <button className="nav-account" type="button" onClick={openAccount} aria-label={authUser ? `Account for ${authUser.displayName}` : 'Log in or create an account'}>
             <span className="nav-account-icon" aria-hidden="true">{authUser ? authUser.displayName.charAt(0).toUpperCase() : '○'}</span>
-            <span className="nav-account-label">{authUser ? authUser.displayName : 'Account'}</span>
           </button>
         </nav>
 
@@ -1222,7 +1810,11 @@ export function HomePage() {
 
       <MoliAssistant raised={showSetupTray} />
 
-      <section ref={heroRef} className="hero page-shell" id="top">
+      <section
+        ref={heroRef}
+        className="hero page-shell"
+        id="top"
+      >
         <div className="hero-heading">
           <p className="hero-kicker">JG MOLI</p>
           <h1>
@@ -1230,36 +1822,49 @@ export function HomePage() {
             <em>Enter your world.</em>
           </h1>
           <div className="hero-summary">
-            <p>Start with what you have. Build how you play.</p>
-            <a href="#shop-by-gear">Explore your world <span aria-hidden="true">↓</span></a>
+            <p aria-live="polite">{heroModes[mode].summary}</p>
+            <div className="hero-actions">
+              <a className="hero-primary-action" href={heroModes[mode].href}>{heroModes[mode].action} <span aria-hidden="true">↓</span></a>
+              {mode === 'setups' && (
+                <a className="hero-setup-action" href="#/recommendation" onClick={(event) => { event.preventDefault(); openRecommendation() }}>
+                  Not sure where to start? Find your setup <span aria-hidden="true">→</span>
+                </a>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="hero-media">
-          <div className="hero-visual">
-            {Object.entries(heroModes).map(([key, hero]) => (
+          <div
+            className="hero-visual"
+            role="button"
+            tabIndex={0}
+            aria-label={`Switch ${heroModes[mode].label} scene`}
+            onClick={showNextHeroFrame}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return
+              event.preventDefault()
+              showNextHeroFrame()
+            }}
+          >
+            {Object.entries(heroModes).flatMap(([key, hero]) => hero.images.map((image, frame) => (
               <img
-                key={key}
-                className={mode === key ? 'hero-image active' : 'hero-image'}
-                src={hero.image}
+                key={`${key}-${frame}`}
+                className={mode === key && heroFrame === frame
+                  ? 'hero-image active'
+                  : previousHero?.mode === key && previousHero.frame === frame
+                    ? 'hero-image previous'
+                    : 'hero-image'}
+                src={image}
                 alt=""
                 style={{ objectPosition: hero.imagePosition }}
               />
-            ))}
-            {isHeroMotionAllowed && heroModes[mode].alternateImage && (
-              <img
-                key={`${mode}-alternate`}
-                className={`hero-image hero-image-alternate ${isHeroAlternateVisible && isHeroMotionEnabled ? 'active' : ''}`}
-                src={heroModes[mode].alternateImage}
-                alt=""
-                style={{ objectPosition: heroModes[mode].imagePosition }}
-              />
-            )}
+            )))}
             <div className="image-wash" />
             <p className="scene-note" aria-live="polite">{heroModes[mode].note}</p>
           </div>
 
-          <div className="scene-tabs" role="tablist" aria-label="Gaming experience">
+          <div className="scene-tabs" role="tablist" aria-label="JG MOLI product worlds">
             {(Object.keys(heroModes) as HeroMode[]).map((key, index) => (
               <button
                 key={key}
@@ -1277,6 +1882,275 @@ export function HomePage() {
               </button>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="cockpit-showcase" id="moli-cockpit" aria-labelledby="cockpit-showcase-title">
+        <header className="cockpit-intro page-shell">
+          <p className="eyebrow">MOLI Cockpit / Four levels of immersion</p>
+          <h2 id="cockpit-showcase-title">Not a chair.<br />Your cockpit.</h2>
+          <p>Four levels of personal space, shaped around comfort, focus and the way you play.</p>
+        </header>
+
+        <div
+          className="cockpit-story page-shell"
+          onFocusCapture={() => setPausedShowcase('cockpit')}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setPausedShowcase(null)
+          }}
+        >
+          <div ref={cockpitModelListRef} className="cockpit-model-list" aria-live="polite">
+            {cockpitModels.map((model) => (
+                <article
+                  key={model.id}
+                  className={activeCockpitModel === model.id ? 'cockpit-model active' : 'cockpit-model'}
+                >
+                  <img className="cockpit-model-mobile-image" src={model.image} alt={model.imageAlt} />
+                  <div className="cockpit-model-meta">
+                    <span>{model.index}</span>
+                    <small>{model.tier}</small>
+                  </div>
+                  <h3>{model.name}</h3>
+                  <h4>{model.headline}</h4>
+                  <div className="cockpit-commerce">
+                    <p>
+                      <strong>{formatWholeMoney(model.priceCents)}</strong>
+                      <small>Incl. GST</small>
+                    </p>
+                    <button type="button" onClick={openCockpitCollection}>
+                      Explore &amp; buy <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </article>
+            ))}
+          </div>
+
+          <div className="cockpit-media-column">
+            <div className="cockpit-media-sticky">
+              <div className="cockpit-image-stage" aria-live="polite">
+                {cockpitModels.map((model) => (
+                  <img
+                    key={model.id}
+                    className={activeCockpitModel === model.id ? 'active' : ''}
+                    src={model.image}
+                    alt={activeCockpitModel === model.id ? model.imageAlt : ''}
+                  />
+                ))}
+                <div className="cockpit-image-caption">
+                  <span>{selectedCockpitModel.index} / 04</span>
+                  <strong>{selectedCockpitModel.name}</strong>
+                </div>
+              </div>
+
+              <nav className="cockpit-ladder" aria-label="MOLI Cockpit models">
+                {cockpitModels.map((model) => (
+                  <button
+                    key={model.id}
+                    type="button"
+                    className={activeCockpitModel === model.id ? 'active' : ''}
+                    aria-current={activeCockpitModel === model.id ? 'true' : undefined}
+                    onClick={() => selectCockpitModel(model.id)}
+                  >
+                    <span>{model.index}</span>
+                    <strong>{model.id === 'cockpit' ? 'Cockpit' : model.name.replace('MOLI Cockpit ', '')}</strong>
+                  </button>
+                ))}
+              </nav>
+              <button className="cockpit-compare-trigger" type="button" onClick={openCockpitComparison}>
+                Compare all models <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button className="cockpit-compare-trigger cockpit-compare-mobile page-shell" type="button" onClick={openCockpitComparison}>
+          Compare all models <span aria-hidden="true">→</span>
+        </button>
+
+        <p className="cockpit-trust page-shell">
+          <span aria-hidden="true">●</span> Configured for you · Installed at home · Supported in Australia
+        </p>
+      </section>
+
+      <section className="cockpit-showcase racer-showcase" id="moli-racer" aria-labelledby="racer-showcase-title">
+        <header className="cockpit-intro page-shell">
+          <p className="eyebrow">MOLI Racer / Three levels of motion</p>
+          <h2 id="racer-showcase-title">Beyond the cockpit.<br />Own the drive.</h2>
+          <p>Three complete motion racing machines, installed and calibrated so you can sit down and race.</p>
+        </header>
+
+        <div
+          className="cockpit-story page-shell"
+          onFocusCapture={() => setPausedShowcase('racer')}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setPausedShowcase(null)
+          }}
+        >
+          <div ref={racerModelListRef} className="cockpit-model-list" aria-live="polite">
+            {racerModels.map((model) => (
+              <article
+                key={model.id}
+                className={activeRacerModel === model.id ? 'cockpit-model active' : 'cockpit-model'}
+              >
+                <img className="cockpit-model-mobile-image" src={model.image} alt={model.imageAlt} />
+                <div className="cockpit-model-meta">
+                  <span>{model.index}</span>
+                  <small>{model.tier}</small>
+                </div>
+                <h3>{model.name}</h3>
+                <h4>{model.headline}</h4>
+                <div className="cockpit-commerce">
+                  <p>
+                    <strong>{formatWholeMoney(model.priceCents)}</strong>
+                    <small>Incl. GST</small>
+                  </p>
+                  <button type="button" onClick={openRacerCollection}>
+                    Explore &amp; buy <span aria-hidden="true">→</span>
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="cockpit-media-column">
+            <div className="cockpit-media-sticky">
+              <div className="cockpit-image-stage" aria-live="polite">
+                {racerModels.map((model) => (
+                  <img
+                    key={model.id}
+                    className={activeRacerModel === model.id ? 'active' : ''}
+                    src={model.image}
+                    alt={activeRacerModel === model.id ? model.imageAlt : ''}
+                  />
+                ))}
+                <div className="cockpit-image-caption">
+                  <span>{selectedRacerModel.index} / 03</span>
+                  <strong>{selectedRacerModel.name}</strong>
+                </div>
+              </div>
+
+              <nav className="cockpit-ladder" aria-label="MOLI Racer models">
+                {racerModels.map((model) => (
+                  <button
+                    key={model.id}
+                    type="button"
+                    className={activeRacerModel === model.id ? 'active' : ''}
+                    aria-current={activeRacerModel === model.id ? 'true' : undefined}
+                    onClick={() => selectRacerModel(model.id)}
+                  >
+                    <span>{model.index}</span>
+                    <strong>{model.name.replace('MOLI Racer ', '')}</strong>
+                  </button>
+                ))}
+              </nav>
+              <button className="cockpit-compare-trigger" type="button" onClick={openRacerComparison}>
+                Compare all models <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button className="cockpit-compare-trigger cockpit-compare-mobile page-shell" type="button" onClick={openRacerComparison}>
+          Compare all models <span aria-hidden="true">→</span>
+        </button>
+
+        <p className="cockpit-trust page-shell">
+          <span aria-hidden="true">●</span> Complete machine · Installed and calibrated · Supported in Australia
+        </p>
+      </section>
+
+      <section className="cockpit-showcase arena-showcase" id="moli-arena" aria-labelledby="arena-showcase-title">
+        <header className="cockpit-intro page-shell">
+          <p className="eyebrow">JG MOLI Arena / Three ways to play together</p>
+          <h2 id="arena-showcase-title">One room.<br />Everyone plays.</h2>
+          <p>Three complete light-and-projection systems that turn familiar spaces into shared play.</p>
+        </header>
+
+        <div
+          className="cockpit-story page-shell"
+          onFocusCapture={() => setPausedShowcase('arena')}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setPausedShowcase(null)
+          }}
+        >
+          <div ref={arenaModelListRef} className="cockpit-model-list" aria-live="polite">
+            {arenaModels.map((model) => (
+              <article
+                key={model.id}
+                className={activeArenaModel === model.id ? 'cockpit-model active' : 'cockpit-model'}
+              >
+                <img className="cockpit-model-mobile-image" src={model.image} alt={model.imageAlt} />
+                <div className="cockpit-model-meta">
+                  <span>{model.index}</span>
+                  <small>{model.tier}</small>
+                </div>
+                <h3>{model.name}</h3>
+                <h4>{model.headline}</h4>
+                <div className="cockpit-commerce">
+                  <p>
+                    <strong>{formatWholeMoney(model.priceCents)}</strong>
+                    <small>Incl. GST</small>
+                  </p>
+                  <button type="button" onClick={openArenaCollection}>
+                    Explore &amp; buy <span aria-hidden="true">→</span>
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="cockpit-media-column">
+            <div className="cockpit-media-sticky">
+              <div className="cockpit-image-stage" aria-live="polite">
+                {arenaModels.map((model) => (
+                  <img
+                    key={model.id}
+                    className={activeArenaModel === model.id ? 'active' : ''}
+                    src={model.image}
+                    alt={activeArenaModel === model.id ? model.imageAlt : ''}
+                  />
+                ))}
+                <div className="cockpit-image-caption">
+                  <span>{selectedArenaModel.index} / 03</span>
+                  <strong>{selectedArenaModel.name}</strong>
+                </div>
+              </div>
+
+              <nav className="cockpit-ladder" aria-label="JG MOLI Arena models">
+                {arenaModels.map((model) => (
+                  <button
+                    key={model.id}
+                    type="button"
+                    className={activeArenaModel === model.id ? 'active' : ''}
+                    aria-current={activeArenaModel === model.id ? 'true' : undefined}
+                    onClick={() => selectArenaModel(model.id)}
+                  >
+                    <span>{model.index}</span>
+                    <strong>{model.name.replace('JG MOLI Arena ', '')}</strong>
+                  </button>
+                ))}
+              </nav>
+              <button className="cockpit-compare-trigger" type="button" onClick={openArenaComparison}>
+                Compare all models <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button className="cockpit-compare-trigger cockpit-compare-mobile page-shell" type="button" onClick={openArenaComparison}>
+          Compare all models <span aria-hidden="true">→</span>
+        </button>
+
+        <p className="cockpit-trust page-shell">
+          <span aria-hidden="true">●</span> 60 games included · Installed and calibrated · Supported in Australia
+        </p>
+      </section>
+
+      <section className="gear-bridge" aria-labelledby="gear-bridge-title">
+        <div className="page-shell">
+          <p className="eyebrow">Beyond complete systems</p>
+          <h2 id="gear-bridge-title">Shape the rest of your setup.</h2>
+          <p>Displays · Controls · Audio · Furniture</p>
         </div>
       </section>
 
@@ -1326,7 +2200,7 @@ export function HomePage() {
           <li><span>02</span><strong>How you want to play</strong></li>
           <li><span>03</span><strong>Upgrades that connect them</strong></li>
         </ol>
-        <p className="recommendation-note">Choose either, both, or neither. We’ll narrow the products only when it helps.</p>
+        <p className="recommendation-note">Complete systems live above. This guide narrows the individual upgrades around the way you play.</p>
       </section>
       <section ref={startingPointRef} className="starting-point" id="starting-point" onClick={() => setHasGuidedInteraction(true)} onFocusCapture={() => setHasGuidedInteraction(true)}>
         <div className="page-shell">
@@ -1432,6 +2306,11 @@ export function HomePage() {
               <div className="experience-unlock" aria-live="polite">
                 <span>What this upgrades</span>
                 <p>{selectedExperienceProduct.benefit}</p>
+                {experience === 'racing' && (
+                  <button type="button" onClick={() => openHomeSection('moli-racer')}>
+                    Explore complete MOLI Racer <span aria-hidden="true">→</span>
+                  </button>
+                )}
               </div>
             </div>
           </article>
@@ -1544,14 +2423,214 @@ export function HomePage() {
         </div>
       </footer>
 
+      {isCockpitCompareOpen && (
+        <section className="cockpit-compare-view" role="dialog" aria-modal="true" aria-labelledby="cockpit-compare-title">
+          <div className="cockpit-compare-shell">
+            <header className="cockpit-compare-header">
+              <div>
+                <p className="eyebrow">MOLI Cockpit / Model comparison</p>
+                <h2 id="cockpit-compare-title">See what changes<br />at every level.</h2>
+                <p>Compare the differences that shape the experience, then choose the cockpit that fits your space and the way you play.</p>
+              </div>
+              <button type="button" onClick={closeCockpitComparison} aria-label="Close model comparison">×</button>
+            </header>
+
+            <p className="cockpit-compare-swipe">Swipe to compare <span aria-hidden="true">→</span></p>
+            <div className="cockpit-compare-table-wrap">
+              <table className="cockpit-compare-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Model</th>
+                    {cockpitModels.map((model) => (
+                      <th scope="col" key={model.id}>
+                        <span>{model.index} / {model.tier}</span>
+                        <strong>{model.name}</strong>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Best for</th>
+                    {cockpitModels.map((model) => <td key={model.id}>{model.idealFor}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Experience</th>
+                    {cockpitModels.map((model) => <td key={model.id}>{model.headline}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Structure</th>
+                    {cockpitModels.map((model) => <td key={model.id}>{model.structure}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Visual system</th>
+                    {cockpitModels.map((model) => <td key={model.id}>{model.visualSystem}</td>)}
+                  </tr>
+                  <tr className="cockpit-compare-price-row">
+                    <th scope="row">Price</th>
+                    {cockpitModels.map((model) => (
+                      <td key={model.id}>
+                        <strong>{formatWholeMoney(model.priceCents)}</strong>
+                        <small>Incl. GST</small>
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <footer className="cockpit-compare-footer">
+              <p><span aria-hidden="true">●</span> Configured for you · Installed at home · Supported in Australia</p>
+              <button type="button" onClick={openCockpitCollection}>Explore &amp; buy <span aria-hidden="true">→</span></button>
+            </footer>
+          </div>
+        </section>
+      )}
+
+      {isRacerCompareOpen && (
+        <section className="cockpit-compare-view racer-compare-view" role="dialog" aria-modal="true" aria-labelledby="racer-compare-title">
+          <div className="cockpit-compare-shell">
+            <header className="cockpit-compare-header">
+              <div>
+                <p className="eyebrow">MOLI Racer / Model comparison</p>
+                <h2 id="racer-compare-title">See what moves<br />at every level.</h2>
+                <p>Compare the display, controls and motion platform, then choose the complete machine that matches the way you race.</p>
+              </div>
+              <button type="button" onClick={closeRacerComparison} aria-label="Close Racer model comparison">×</button>
+            </header>
+
+            <p className="cockpit-compare-swipe">Swipe to compare <span aria-hidden="true">→</span></p>
+            <div className="cockpit-compare-table-wrap">
+              <table className="cockpit-compare-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Model</th>
+                    {racerModels.map((model) => (
+                      <th scope="col" key={model.id}>
+                        <span>{model.index} / {model.tier}</span>
+                        <strong>{model.name}</strong>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Best for</th>
+                    {racerModels.map((model) => <td key={model.id}>{model.idealFor}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Motion</th>
+                    {racerModels.map((model) => <td key={model.id}>{model.motionSystem}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Display</th>
+                    {racerModels.map((model) => <td key={model.id}>{model.visualSystem}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Controls</th>
+                    {racerModels.map((model) => <td key={model.id}>{model.controls}</td>)}
+                  </tr>
+                  <tr className="cockpit-compare-price-row">
+                    <th scope="row">Price</th>
+                    {racerModels.map((model) => (
+                      <td key={model.id}>
+                        <strong>{formatWholeMoney(model.priceCents)}</strong>
+                        <small>Incl. GST</small>
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <footer className="cockpit-compare-footer">
+              <p><span aria-hidden="true">●</span> Complete machine · Installed and calibrated · Supported in Australia</p>
+              <button type="button" onClick={openRacerCollection}>Explore &amp; buy <span aria-hidden="true">→</span></button>
+            </footer>
+          </div>
+        </section>
+      )}
+
+      {isArenaCompareOpen && (
+        <section className="cockpit-compare-view arena-compare-view" role="dialog" aria-modal="true" aria-labelledby="arena-compare-title">
+          <div className="cockpit-compare-shell">
+            <header className="cockpit-compare-header">
+              <div>
+                <p className="eyebrow">JG MOLI Arena / Model comparison</p>
+                <h2 id="arena-compare-title">See how the room<br />opens up.</h2>
+                <p>Compare players, content, installation and support, then choose the shared experience that fits your space.</p>
+              </div>
+              <button type="button" onClick={closeArenaComparison} aria-label="Close Arena model comparison">×</button>
+            </header>
+
+            <p className="cockpit-compare-swipe">Swipe to compare <span aria-hidden="true">→</span></p>
+            <div className="cockpit-compare-table-wrap">
+              <table className="cockpit-compare-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Model</th>
+                    {arenaModels.map((model) => (
+                      <th scope="col" key={model.id}>
+                        <span>{model.index} / {model.tier}</span>
+                        <strong>{model.name}</strong>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Best for</th>
+                    {arenaModels.map((model) => <td key={model.id}>{model.idealFor}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Players</th>
+                    {arenaModels.map((model) => <td key={model.id}>{model.players}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Content</th>
+                    {arenaModels.map((model) => <td key={model.id}>{model.content}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Installation</th>
+                    {arenaModels.map((model) => <td key={model.id}>{model.installation}</td>)}
+                  </tr>
+                  <tr>
+                    <th scope="row">Support</th>
+                    {arenaModels.map((model) => <td key={model.id}>{model.support}</td>)}
+                  </tr>
+                  <tr className="cockpit-compare-price-row">
+                    <th scope="row">Price</th>
+                    {arenaModels.map((model) => (
+                      <td key={model.id}>
+                        <strong>{formatWholeMoney(model.priceCents)}</strong>
+                        <small>Incl. GST</small>
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <footer className="cockpit-compare-footer">
+              <p><span aria-hidden="true">●</span> 60 games included · Installed and calibrated · Supported in Australia</p>
+              <button type="button" onClick={openArenaCollection}>Explore &amp; buy <span aria-hidden="true">→</span></button>
+            </footer>
+          </div>
+        </section>
+      )}
+
       {catalogView && (
         <section className="catalog-view" role="dialog" aria-modal="true" aria-labelledby="catalog-title">
           <div className="catalog-shell">
             <header className="catalog-header">
               <div>
-                <p className="eyebrow">{catalogView.source === 'recommendation' ? 'JG MOLI recommendation' : 'Shop directly'}</p>
+                <p className="eyebrow">{catalogView.source === 'recommendation' ? 'JG MOLI recommendation' : catalogView.lockedSubtype ? 'Complete system collection' : 'Shop directly'}</p>
                 <h2 id="catalog-title">{catalogView.title}</h2>
-                <p>{catalogView.source === 'recommendation' ? 'Matched to your device and the way you want to play.' : 'Start with the full collection, then narrow it only if you want to.'}</p>
+                <p>{catalogView.source === 'recommendation'
+                  ? 'Matched to your device and the way you want to play.'
+                  : catalogView.lockedSubtype
+                    ? 'Compare the complete range, then choose the level that fits your space.'
+                    : 'Start with the full collection, then narrow it only if you want to.'}</p>
               </div>
               <button className="catalog-close" type="button" onClick={() => leaveManagedView(() => setCatalogView(null))} aria-label="Close product catalogue">×</button>
             </header>
@@ -1559,17 +2638,21 @@ export function HomePage() {
             {catalogView.allowedCategories.length > 1 && (
               <div className="catalog-category-tabs" aria-label="Filter products by category">
                 <button type="button" className={!productFocus ? 'active' : ''} onClick={() => { setProductFocus(null); setCatalogSubtype(null) }}>
-                  {catalogView.source === 'recommendation' ? 'All matched' : 'All gear'}
+                  {catalogView.source === 'recommendation'
+                    ? 'All matched'
+                    : catalogView.allowedCategories.includes('sim')
+                      ? 'All products'
+                      : 'All gear'}
                 </button>
                 {catalogView.allowedCategories.map((id) => (
                   <button key={id} type="button" className={productFocus === id ? 'active' : ''} onClick={() => { setProductFocus(id); setCatalogSubtype(null) }}>
-                    {gearShortcuts.find((gear) => gear.id === id)?.label}
+                    {catalogCategoryLabels[id]}
                   </button>
                 ))}
               </div>
             )}
 
-            {productFocus && (
+            {productFocus && !catalogView.lockedSubtype && (
               <div className="catalog-subfilters" aria-label={`Filter ${productFocus} products`}>
                 <button type="button" className={!catalogSubtype ? 'active' : ''} onClick={() => setCatalogSubtype(null)}>All</button>
                 {catalogSubtypes.map((subtype) => (
@@ -1580,18 +2663,21 @@ export function HomePage() {
 
             <div className="catalog-results-heading">
               <span>{visibleCatalogItems.length.toString().padStart(2, '0')} products</span>
-              <strong>{productFocus ? gearShortcuts.find((gear) => gear.id === productFocus)?.label : 'All available gear'}</strong>
+              <strong>{productFocus
+                ? catalogCategoryLabels[productFocus]
+                : catalogView.allowedCategories.includes('sim')
+                  ? 'All available products'
+                  : 'All available gear'}</strong>
             </div>
 
             <div className="catalog-grid">
               {isCatalogLoading && <p className="catalog-loading">Loading the collection…</p>}
               {catalogError && <p className="catalog-error" role="alert">{catalogError}</p>}
               {visibleCatalogItems.map((item) => {
-                const gear = gearShortcuts.find((entry) => entry.id === item.category)!
                 return (
                   <article key={item.id} className="catalog-card">
                     <div className="catalog-card-image"><img src={item.image} alt={`${item.name} product preview`} /></div>
-                    <span>{gear.label} / {item.subtype}</span>
+                    <span>{catalogCategoryLabels[item.category]} / {item.subtype}</span>
                     <small>{item.brand}</small>
                     <h3>{item.name}</h3>
                     <p>{item.description}</p>

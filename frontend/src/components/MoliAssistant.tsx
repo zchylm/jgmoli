@@ -10,9 +10,9 @@ type Message = {
 }
 
 const starterQuestions = [
-  'Help me choose the right gear',
-  'Build around my console',
-  'Where can I find my order?',
+  'Which complete system fits my space?',
+  'Compare Cockpit, Racer and Arena',
+  'Upgrade the setup I already own',
 ]
 
 function Orb({ compact = false }: { compact?: boolean }) {
@@ -113,13 +113,13 @@ export function MoliAssistant({ raised = false }: { raised?: boolean }) {
   return (
     <div className={`moli-assistant${raised ? ' moli-assistant-raised' : ''}${isOpen ? ' moli-assistant-open' : ''}`}>
       {isOpen && (
-        <section className="moli-panel" aria-label="MOLI AI gaming gear assistant">
+        <section className="moli-panel" aria-label="JG MOLI product and setup advisor">
           <header className="moli-panel-header">
             <div className="moli-panel-identity">
               <Orb compact />
               <div>
-                <span>MOLI AI / Gear guide</span>
-                <h2>Start with how you play.</h2>
+                <span>MOLI AI / Setup advisor</span>
+                <h2>Find your way into the experience.</h2>
               </div>
             </div>
             <div className="moli-panel-actions">
@@ -131,7 +131,7 @@ export function MoliAssistant({ raised = false }: { raised?: boolean }) {
 
           {messages.length === 0 && !isLoading && (
             <div className="moli-welcome">
-              <p>Tell me what you play on, what you want to feel, or what needs improving.</p>
+              <p>Tell me who will use the space, what you want to experience, or what you already own.</p>
               <div className="moli-starters" aria-label="Suggested questions">
                 {starterQuestions.map((starter) => (
                   <button key={starter} type="button" onClick={() => void submitQuestion(starter)}>
@@ -165,7 +165,7 @@ export function MoliAssistant({ raised = false }: { raised?: boolean }) {
               ref={inputRef}
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder="Ask about gear, compatibility or your setup"
+              placeholder="Ask about complete systems, gear or your space"
               autoComplete="off"
               maxLength={2000}
             />
@@ -180,7 +180,7 @@ export function MoliAssistant({ raised = false }: { raised?: boolean }) {
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
-        aria-label={isOpen ? 'Close MOLI AI' : 'Open MOLI AI gaming gear assistant'}
+        aria-label={isOpen ? 'Close MOLI AI' : 'Open JG MOLI product and setup advisor'}
       >
         <span className="moli-launcher-label">Ask MOLI AI</span>
         <Orb />

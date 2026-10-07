@@ -62,7 +62,13 @@ class ClaudeProviderTest {
         assertEquals(3, requestBody.get().path("messages").size());
         assertEquals("What works with Xbox for a $500 AUD budget?", requestBody.get().path("messages").path(2).path("content").asText());
         String systemPrompt = requestBody.get().path("system").asText();
-        assertTrue(systemPrompt.contains("official product and website assistant for JG MOLI"));
+        assertTrue(systemPrompt.contains("official product and setup advisor for JG MOLI"));
+        assertTrue(systemPrompt.contains("MOLI Cockpit, MOLI Racer and JG MOLI Arena"));
+        assertTrue(systemPrompt.contains("Complete systems come first"));
+        assertTrue(systemPrompt.contains("Do not force every visitor into the gear questionnaire"));
+        assertTrue(systemPrompt.contains("personal immersive space for MOLI Cockpit"));
+        assertTrue(systemPrompt.contains("dedicated motion racing for MOLI Racer"));
+        assertTrue(systemPrompt.contains("shared family, group or venue play for JG MOLI Arena"));
         assertTrue(systemPrompt.contains("Platform compatibility is a hard constraint"));
         assertTrue(systemPrompt.contains("general knowledge are not proof of compatibility"));
         assertTrue(systemPrompt.contains("ask exactly one concise question about one decision at a time"));
