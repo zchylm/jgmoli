@@ -1,0 +1,17 @@
+.payment-result-backdrop { position: fixed; z-index: 140; inset: 0; display: grid; place-items: center; padding: 24px; overflow-y: auto; background: rgb(13 19 20 / 68%); backdrop-filter: blur(8px); }
+.payment-result { position: relative; width: min(100%, 560px); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 42px; border: 1px solid var(--line); background: var(--paper-bright); color: var(--ink); box-shadow: 0 24px 80px rgb(0 0 0 / 22%); outline: none; }
+.payment-result-close { position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 24px; cursor: pointer; }
+.payment-result-brand { font-size: 13px; font-weight: 750; letter-spacing: .28em; }
+.payment-result-symbol { display: grid; place-items: center; width: 54px; height: 54px; margin: 36px 0 24px; border: 1px solid var(--aqua); border-radius: 50%; color: var(--aqua); font-size: 24px; }
+.payment-result h2 { margin: 12px 0 18px; font-size: clamp(28px, 4vw, 38px); font-weight: 540; letter-spacing: -.045em; line-height: 1.1; }
+.payment-result #payment-result-description { margin: 0; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+.payment-result dl { margin: 28px 0; border-top: 1px solid var(--line); }
+.payment-result dl div { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.payment-result dt { color: var(--ink-soft); }
+.payment-result dd { margin: 0; font-weight: 650; overflow-wrap: anywhere; text-align: right; }
+.payment-result-actions { display: grid; gap: 10px; margin-top: 28px; }
+.payment-result .checkout-primary { width: 100%; margin: 0; }
+.payment-result-continue { display: block; margin: 24px auto 0; padding: 8px; border: 0; background: transparent; color: var(--ink-soft); font-size: 13px; cursor: pointer; }
+.payment-result-continue span { margin-left: 8px; color: var(--orange); }
+.payment-result button:focus-visible { outline: 2px solid var(--aqua); outline-offset: 3px; }
+@media (max-width: 560px) { .payment-result-backdrop { padding: 16px; } .payment-result { max-height: calc(100dvh - 32px); padding: 32px 24px; } .payment-result-symbol { margin-top: 28px; } .payment-result dl div { font-size: 13px; } }

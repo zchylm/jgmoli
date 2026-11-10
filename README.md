@@ -28,6 +28,8 @@ mvn spring-boot:run
 
 `JGMOLI_CLAUDE_API_KEY` is read only by the backend and must never be added to the frontend or committed to source control. The optional `JGMOLI_CLAUDE_MODEL` variable defaults to `claude-sonnet-5`.
 
+Local secrets can also be configured in `backend/src/main/resources/application-local-private.properties`, matching JON.PC's local Spring configuration. This file is ignored by Git, excluded from the packaged JAR, and loaded only by the local profile. A blank example is provided alongside it. Stripe test payments require `jgmoli.stripe.test-enabled=true`, a test secret key and a webhook signing secret. No macOS Keychain setup is required. Use a fresh checkout without local secrets for deployment builds.
+
 Start the frontend in another terminal:
 
 ```bash

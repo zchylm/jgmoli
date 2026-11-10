@@ -49,6 +49,16 @@ jobs:
           VITE_API_BASE_URL: https://jgmoli-backend.icyhill-e15eff9a.australiaeast.azurecontainerapps.io
         run: npm run build
 
+      - name: Build isolated payment test preview
+        working-directory: frontend
+        env:
+          VITE_BASE_PATH: /payment-preview/
+          VITE_API_BASE_URL: https://jgmoli-payment-test.icyhill-e15eff9a.australiaeast.azurecontainerapps.io
+        run: |
+          npm run build -- --outDir dist-preview
+          mkdir -p dist/payment-preview
+          cp -R dist-preview/. dist/payment-preview/
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:

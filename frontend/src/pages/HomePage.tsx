@@ -61,9 +61,13 @@ import {
 import { getCatalogProducts, type CatalogProduct } from '../services/catalog'
 import { loadCart, saveCart, type CartLine } from '../services/cart'
 import { MoliAssistant } from '../components/MoliAssistant'
+import { PaymentResultDialog } from '../components/PaymentResultDialog'
 import {
   completeDemoPayment,
+  createStripeCheckout,
+  getPaymentConfiguration,
   createOrder,
+  getOrder,
   getInvoice,
   getOrders,
   type CheckoutSource,
@@ -626,6 +630,8 @@ function syncHomeHashToScroll(top: number) {
 }
 
 export function HomePage() {
+  const [paymentConfiguration, setPaymentConfiguration] = useState({ enabled: false, testMode: true })
+  const stripeEnabled = paymentConfiguration.enabled
   const [mode, setMode] = useState<HeroMode>('brand')
   const [activeCockpitModel, setActiveCockpitModel] = useState<CockpitModelId>('cockpit')
   const [isCockpitCompareOpen, setIsCockpitCompareOpen] = useState(false)
@@ -679,6 +685,10 @@ export function HomePage() {
   const [isOrdersLoading, setIsOrdersLoading] = useState(false)
   const [loadingInvoiceReference, setLoadingInvoiceReference] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState('')
+  const [stripeReturnNotice, setStripeReturnNotice] = useState('')
+  const [stripeReturnOrder, setStripeReturnOrder] = useState<string | null>(null)
+  const [stripeResultOrder, setStripeResultOrder] = useState<Order | null>(null)
+  const stripeResultClosed = useRef(false)
   const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false)
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState(() => crypto.randomUUID())
   const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState(() => crypto.randomUUID())
@@ -714,6 +724,7 @@ export function HomePage() {
     || isOrdersOpen
     || isCheckoutOpen
     || isInvoiceOpen
+    || Boolean(stripeReturnNotice)
   const allGearIds = gearShortcuts.map((gear) => gear.id)
   const allProductIds: GearTarget[] = ['sim', ...allGearIds]
   const deviceProfile = startingPoint ? deviceRecommendationProfiles[startingPoint] : null
@@ -1012,6 +1023,59 @@ export function HomePage() {
       .catch((error) => setCatalogError(error instanceof Error ? error.message : 'The gear catalogue is unavailable right now.'))
       .finally(() => setIsCatalogLoading(false))
   }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const result = params.get('stripe_return')
+    const reference = params.get('order')
+    if (!result || !reference) return
+    stripeResultClosed.current = false
+    if (result === 'cancelled') {
+      queueMicrotask(() => setStripeReturnNotice(`Checking order ${reference}…`))
+    }
+    if (!authToken) {
+      queueMicrotask(() => setStripeReturnNotice(`Log in to check the status of order ${reference}.`))
+      return
+    }
+    let active = true
+    let timer: number | undefined
+    let attempts = 0
+    const check = async () => {
+      try {
+        const order = await getOrder(authToken, reference)
+        if (!active || stripeResultClosed.current) return
+        setStripeResultOrder(order)
+        if (order.status === 'PAID') {
+          setStripeReturnOrder(null)
+          setStripeReturnNotice(`Test payment confirmed for order ${reference}. Your invoice is available in Orders.`)
+          return
+        }
+        if (result === 'cancelled') {
+          setStripeReturnOrder(reference)
+          setStripeReturnNotice(`Checkout was closed. Order ${reference} is awaiting payment.`)
+          return
+        }
+        if (++attempts < 10) {
+          setStripeReturnNotice(`Checking payment for order ${reference}…`)
+          timer = window.setTimeout(check, 2000)
+        } else setStripeReturnNotice(`Payment confirmation for ${reference} is still pending. Check your orders later.`)
+      } catch {
+        if (active && !stripeResultClosed.current) setStripeReturnNotice(`Unable to check order ${reference}. Please check your orders later.`)
+      }
+    }
+    void check()
+    return () => { active = false; if (timer) window.clearTimeout(timer) }
+  }, [authToken])
+
+  useEffect(() => {
+    let active = true
+    getPaymentConfiguration(authToken).then(config => {
+      if (active) setPaymentConfiguration(config)
+    }).catch(() => {
+      if (active) setPaymentConfiguration({ enabled: false, testMode: true })
+    })
+    return () => { active = false }
+  }, [authToken])
 
   useEffect(() => {
     saveCart(cartLines)
@@ -1679,6 +1743,11 @@ export function HomePage() {
     setIsCheckoutSubmitting(true)
     checkoutSubmittingRouteRef.current = 'checkout-review'
     try {
+      if (stripeEnabled) {
+        const checkout = await createStripeCheckout(authToken, checkoutOrder.orderReference)
+        window.location.assign(checkout.url)
+        return
+      }
       const payment = await completeDemoPayment(authToken, paymentIdempotencyKey, checkoutOrder.orderReference)
       setCheckoutPayment(payment)
       setCheckoutStep('complete')
@@ -1761,8 +1830,38 @@ export function HomePage() {
     currency: item.currency,
   }).format(item.priceCents / 100)
 
+  const dismissPaymentResult = () => {
+    stripeResultClosed.current = true
+    setStripeReturnNotice('')
+    const url = new URL(window.location.href)
+    url.searchParams.delete('stripe_return')
+    url.searchParams.delete('order')
+    window.history.replaceState(window.history.state, '', url)
+  }
+
   return (
     <main className="home-page">
+      {stripeReturnNotice && <PaymentResultDialog message={stripeReturnNotice} order={stripeResultOrder} canResume={Boolean(stripeReturnOrder && authToken)} busy={isCheckoutSubmitting} onClose={dismissPaymentResult} onOrders={() => {
+        dismissPaymentResult()
+        if (authToken) openOrders()
+        else openAccount()
+      }} onInvoice={async () => {
+        if (!authToken || !stripeResultOrder) return
+        const invoice = await getInvoice(authToken, stripeResultOrder.orderReference)
+        dismissPaymentResult()
+        setCheckoutInvoice(invoice)
+        setIsInvoiceOpen(true)
+        pushStoreRoute('invoice')
+      }} onResume={async () => {
+        if (!authToken || !stripeReturnOrder) return
+        setIsCheckoutSubmitting(true)
+        try {
+          const checkout = await createStripeCheckout(authToken, stripeReturnOrder)
+          window.location.assign(checkout.url)
+        } catch (error) {
+          setStripeReturnNotice(error instanceof Error ? error.message : 'Please try again.')
+        } finally { setIsCheckoutSubmitting(false) }
+      }} />}
       <header className="site-header">
         <a className="brand" href="#top" aria-label="JG MOLI home">
           <span className="brand-monogram">JG</span>
@@ -2838,13 +2937,13 @@ export function HomePage() {
                     </div>
                     <div className="payment-block">
                       <div>
-                        <p className="eyebrow">{demoPaymentEnabled ? 'Prototype payment' : 'Secure payment'}</p>
-                        <h3>{demoPaymentEnabled ? 'No card will be charged.' : 'Payment provider required.'}</h3>
-                        <span>{demoPaymentEnabled ? 'This local-only step proves the order, payment and confirmation flow. Production payment remains disabled until a trusted provider is connected.' : 'Checkout is ready for a trusted payment provider. Payment remains unavailable until that production connection is configured.'}</span>
+                        <p className="eyebrow">{stripeEnabled && paymentConfiguration.testMode ? 'Stripe test payment' : demoPaymentEnabled && !stripeEnabled ? 'Prototype payment' : 'Secure payment'}</p>
+                        <h3>{stripeEnabled ? (paymentConfiguration.testMode ? 'No card will be charged.' : 'Complete your payment securely.') : demoPaymentEnabled ? 'No card will be charged.' : 'Online checkout is currently unavailable.'}</h3>
+                        <span>{stripeEnabled ? (paymentConfiguration.testMode ? 'Continue to Stripe test checkout.' : 'Continue to Stripe to complete your purchase.') : demoPaymentEnabled ? 'This local-only step proves the order, payment and confirmation flow.' : 'Please contact our team for help with your order.'}</span>
                       </div>
                       {checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}
-                      <button className="checkout-primary" type="button" onClick={payForOrder} disabled={isCheckoutSubmitting || !demoPaymentEnabled}>
-                        {isCheckoutSubmitting ? 'Confirming…' : demoPaymentEnabled ? `Confirm demo payment · ${formatMoney(checkoutOrder.totalCents, checkoutOrder.currency)}` : 'Payment unavailable'} <span aria-hidden="true">→</span>
+                      <button className="checkout-primary" type="button" onClick={payForOrder} disabled={isCheckoutSubmitting || (!demoPaymentEnabled && !stripeEnabled)}>
+                        {isCheckoutSubmitting ? 'Confirming…' : stripeEnabled ? `Continue to Stripe · ${formatMoney(checkoutOrder.totalCents, checkoutOrder.currency)}` : demoPaymentEnabled ? `Confirm demo payment · ${formatMoney(checkoutOrder.totalCents, checkoutOrder.currency)}` : 'Payment unavailable'} <span aria-hidden="true">→</span>
                       </button>
                     </div>
                   </>

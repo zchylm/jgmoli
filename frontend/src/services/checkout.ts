@@ -137,6 +137,26 @@ export function completeDemoPayment(token: string, idempotencyKey: string, order
   return request<Payment>('/payments/demo', token, idempotencyKey, { orderReference })
 }
 
+export function createStripeCheckout(token: string, orderReference: string) {
+  return request<{ url: string }>('/payments/stripe/checkout', token, crypto.randomUUID(), { orderReference })
+}
+
+export async function getPaymentConfiguration(token: string | null) {
+  const response = await fetch(apiUrl('/api/payments/stripe/config'), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) throw new Error('Payments are currently unavailable.')
+  return response.json() as Promise<{ enabled: boolean; testMode: boolean }>
+}
+
+export async function getOrder(token: string, orderReference: string) {
+  const response = await fetch(apiUrl(`/api/orders/${encodeURIComponent(orderReference)}`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) throw new Error('Your order status is temporarily unavailable.')
+  return response.json() as Promise<Order>
+}
+
 export async function getInvoice(token: string, orderReference: string) {
   const response = await fetch(apiUrl(`/api/invoices/orders/${encodeURIComponent(orderReference)}`), {
     headers: { Authorization: `Bearer ${token}` },

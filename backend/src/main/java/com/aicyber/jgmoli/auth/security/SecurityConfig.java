@@ -53,6 +53,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/stripe/webhook").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/stripe/config").permitAll()
                         .requestMatchers(
                                 "/api/auth/me",
                                 "/api/auth/email/resend",
