@@ -21,7 +21,9 @@ public record StripePaymentSettings(
     public void requireConfigured() {
         if (!enabled || !("test".equals(mode) || "live".equals(mode))) throw new IllegalStateException("Payments are currently unavailable.");
         if (live() && !allowLive) throw new IllegalStateException("Live payments are disabled.");
-        if (!secretKey.startsWith(live() ? "sk_live_" : "sk_test_") || !webhookSecret.startsWith("whsec_")) {
+        String keyMode = live() ? "live_" : "test_";
+        boolean matchingKey = secretKey.startsWith("sk_" + keyMode) || secretKey.startsWith("rk_" + keyMode);
+        if (!matchingKey || !webhookSecret.startsWith("whsec_")) {
             throw new IllegalStateException("Payment configuration is incomplete.");
         }
         URI uri;

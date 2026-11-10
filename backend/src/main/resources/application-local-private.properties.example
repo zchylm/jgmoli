@@ -1,6 +1,7 @@
 # Copy to application-local-private.properties (ignored by Git).
 # This file uses Spring property names, not shell export statements.
 jgmoli.stripe.test-enabled=false
+# Server-side key: sk_test_... or rk_test_... for local sandbox testing.
 jgmoli.stripe.secret-key=
 jgmoli.stripe.webhook-secret=
 jgmoli.stripe.return-url=http://localhost:5173/
