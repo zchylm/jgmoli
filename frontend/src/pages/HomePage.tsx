@@ -582,7 +582,7 @@ const experiences = [
 ]
 
 const demoPaymentEnabled = import.meta.env.DEV || import.meta.env.VITE_DEMO_PAYMENT_ENABLED === 'true'
-const initialAccountParams = new URL(window.location.href).searchParams
+const initialAccountParams = new URL(typeof window === 'undefined' ? 'https://jgmoli.com.au/' : window.location.href).searchParams
 const initialVerificationToken = initialAccountParams.get('verifyEmail')
 const initialPasswordResetToken = initialAccountParams.get('resetPassword')
 

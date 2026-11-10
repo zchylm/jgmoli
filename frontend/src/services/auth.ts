@@ -85,7 +85,7 @@ export async function confirmPasswordReset(token: string, password: string) {
 }
 
 export function loadToken() {
-  return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)
+  return typeof window === 'undefined' ? null : window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)
 }
 
 export function saveToken(token: string) {

@@ -59,6 +59,10 @@ jobs:
           mkdir -p dist/payment-preview
           cp -R dist-preview/. dist/payment-preview/
 
+      - name: Verify search indexing configuration
+        working-directory: frontend
+        run: npm run check:seo
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
