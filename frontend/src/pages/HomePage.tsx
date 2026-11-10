@@ -1047,7 +1047,7 @@ export function HomePage() {
         setStripeResultOrder(order)
         if (order.status === 'PAID') {
           setStripeReturnOrder(null)
-          setStripeReturnNotice(`Test payment confirmed for order ${reference}. Your invoice is available in Orders.`)
+          setStripeReturnNotice(`Payment confirmed for order ${reference}. Your invoice is available in Orders.`)
           return
         }
         if (result === 'cancelled') {

@@ -10,6 +10,7 @@ frontend/.env.local
 
 backend/target/
 backend/.env
+backend/.env.payment-preview.local
 backend/src/main/resources/application-local-private.properties
 
 *.log
