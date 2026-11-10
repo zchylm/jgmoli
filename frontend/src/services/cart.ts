@@ -1,9 +1,11 @@
+import { storagePrefix } from './storage'
+
 export type CartLine = {
   variantId: string
   quantity: number
 }
 
-const CART_KEY = 'jgmoli.cart'
+const CART_KEY = `${storagePrefix}.cart`
 
 export function loadCart(): CartLine[] {
   try {

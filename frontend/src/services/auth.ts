@@ -1,4 +1,5 @@
 import { apiUrl } from './api'
+import { storagePrefix } from './storage'
 
 export type AuthUser = {
   id: string
@@ -17,7 +18,7 @@ export type AuthSession = {
 type AuthError = { message?: string }
 type MessageResponse = { message: string }
 
-export const AUTH_TOKEN_STORAGE_KEY = 'jgmoli.accessToken'
+export const AUTH_TOKEN_STORAGE_KEY = `${storagePrefix}.accessToken`
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(apiUrl(`/api${path}`), {
